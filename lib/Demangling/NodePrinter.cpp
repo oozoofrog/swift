@@ -2593,9 +2593,9 @@ NodePointer NodePrinter::print(NodePointer Node, bool asPrefixContext) {
     assert(Node->getNumChildren() == 1 || Node->getNumChildren() == 3);
     NodePointer layout = Node->getChild(0);
     assert(layout->getKind() == Node::Kind::SILBoxLayout);
-    NodePointer signature, genericArgs = nullptr;
+    NodePointer genericArgs = nullptr;
     if (Node->getNumChildren() == 3) {
-      signature = Node->getChild(1);
+      NodePointer signature = Node->getChild(1);
       assert(signature->getKind() == Node::Kind::DependentGenericSignature);
       genericArgs = Node->getChild(2);
       assert(genericArgs->getKind() == Node::Kind::TypeList);

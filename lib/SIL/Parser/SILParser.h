@@ -331,6 +331,7 @@ public:
   bool parseSILOpcode(SILInstructionKind &Opcode, SourceLoc &OpcodeLoc,
                       StringRef &OpcodeName);
   bool parseSILDebugVar(SILDebugVariable &Var);
+  bool peekSILDebugLocation();
 
   bool parseSILDebugInfoExpression(SILDebugInfoExpression &DIExpr);
 
@@ -417,6 +418,16 @@ public:
   /// Parse into checked cast options, such as [prohibit_isolated_conformances].
   CheckedCastInstOptions parseCheckedCastInstOptions(bool *isExact);
 };
+
+//===----------------------------------------------------------------------===//
+// Helper Functions for Instruction Parsing
+//===----------------------------------------------------------------------===//
+
+/// Collect protocol conformances for an existential type.
+/// Used by various existential-related instructions.
+ArrayRef<ProtocolConformanceRef>
+collectExistentialConformances(Parser &P, CanType conformingType,
+                               SourceLoc loc, CanType protocolType);
 
 } // namespace swift
 

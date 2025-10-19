@@ -46,4 +46,16 @@ PARSE_SIL_VISITOR_ENTRY(MetatypeInst)
 PARSE_SIL_VISITOR_ENTRY(ValueMetatypeInst)
 PARSE_SIL_VISITOR_ENTRY(ExistentialMetatypeInst)
 
+// Phase 3: High-frequency instructions
+// Alloc/Dealloc-family (simple ones first - 9 instructions)
+PARSE_SIL_VISITOR_ENTRY(AllocStackInst)
+PARSE_SIL_VISITOR_ENTRY(AllocPackInst)
+PARSE_SIL_VISITOR_ENTRY(AllocPackMetadataInst)
+PARSE_SIL_VISITOR_ENTRY(DeallocStackInst)
+PARSE_SIL_VISITOR_ENTRY(DeallocStackRefInst)
+PARSE_SIL_VISITOR_ENTRY(DeallocPackInst)
+PARSE_SIL_VISITOR_ENTRY(DeallocPackMetadataInst)
+PARSE_SIL_VISITOR_ENTRY(DeallocRefInst)
+PARSE_SIL_VISITOR_ENTRY(DeallocPartialRefInst)
+
 #undef PARSE_SIL_VISITOR_ENTRY

@@ -4868,69 +4868,12 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
 
     break;
   }
-  case SILInstructionKind::AllocPackInst: {
-    SILType Ty;
-    if (parseSILType(Ty))
-      return true;
-
-    ResultVal = B.createAllocPack(InstLoc, Ty);
-    break;
-  }
-  case SILInstructionKind::AllocPackMetadataInst: {
-    SILType Ty;
-    if (parseSILType(Ty))
-      return true;
-
-    ResultVal = B.createAllocPackMetadata(InstLoc, Ty);
-    break;
-  }
-  case SILInstructionKind::AllocStackInst: {
-    auto hasDynamicLifetime = DoesNotHaveDynamicLifetime;
-    auto isLexical = IsNotLexical;
-    auto isFromVarDecl = IsNotFromVarDecl;
-    UsesMoveableValueDebugInfo_t usesMoveableValueDebugInfo =
-        DoesNotUseMoveableValueDebugInfo;
-
-    StringRef attributeName;
-    SourceLoc attributeLoc;
-    while (parseSILOptional(attributeName, attributeLoc, *this)) {
-      if (attributeName == "dynamic_lifetime")
-        hasDynamicLifetime = HasDynamicLifetime;
-      else if (attributeName == "lexical")
-        isLexical = IsLexical;
-      else if (attributeName == "var_decl")
-        isFromVarDecl = IsFromVarDecl;
-      else if (attributeName == "moveable_value_debuginfo")
-        usesMoveableValueDebugInfo = UsesMoveableValueDebugInfo;
-      else {
-        P.diagnose(attributeLoc, diag::sil_invalid_attribute_for_instruction,
-                   attributeName, "alloc_stack");
-        return true;
-      }
-    }
-
-    SILType Ty;
-    if (parseSILType(Ty))
-      return true;
-
-    SILDebugVariable VarInfo;
-    if (parseSILDebugVar(VarInfo) || parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    if (Ty.isMoveOnly())
-      usesMoveableValueDebugInfo = UsesMoveableValueDebugInfo;
-
-    // It doesn't make sense to attach a debug var info if the name is empty
-    if (VarInfo.Name.size())
-      ResultVal = B.createAllocStack(InstLoc, Ty, VarInfo, hasDynamicLifetime,
-                                     isLexical, isFromVarDecl,
-                                     usesMoveableValueDebugInfo);
-    else
-      ResultVal =
-          B.createAllocStack(InstLoc, Ty, {}, hasDynamicLifetime, isLexical,
-                             isFromVarDecl, usesMoveableValueDebugInfo);
-    break;
-  }
+  case SILInstructionKind::AllocPackInst:
+    llvm_unreachable("AllocPackInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::AllocPackMetadataInst:
+    llvm_unreachable("AllocPackMetadataInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::AllocStackInst:
+    llvm_unreachable("AllocStackInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::MetatypeInst:
     llvm_unreachable("MetatypeInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::AllocRefInst:
@@ -5003,41 +4946,12 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     break;
 
   case SILInstructionKind::DeallocStackInst:
-    if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createDeallocStack(InstLoc, Val);
-    break;
   case SILInstructionKind::DeallocStackRefInst:
-    if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createDeallocStackRef(InstLoc, Val);
-    break;
   case SILInstructionKind::DeallocPackInst:
-    if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createDeallocPack(InstLoc, Val);
-    break;
   case SILInstructionKind::DeallocPackMetadataInst:
-    if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createDeallocPackMetadata(InstLoc, Val);
-    break;
-  case SILInstructionKind::DeallocRefInst: {
-    if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createDeallocRef(InstLoc, Val);
-    break;
-  }
-  case SILInstructionKind::DeallocPartialRefInst: {
-    SILValue Metatype, Instance;
-    if (parseTypedValueRef(Instance, B) ||
-        P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-        parseTypedValueRef(Metatype, B) || parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    ResultVal = B.createDeallocPartialRef(InstLoc, Instance, Metatype);
-    break;
-  }
+  case SILInstructionKind::DeallocRefInst:
+  case SILInstructionKind::DeallocPartialRefInst:
+    llvm_unreachable("Dealloc* instructions are handled by SILInstructionParserVisitor");
   case SILInstructionKind::DeallocBoxInst: {
     bool isDeadEnd = false;
     if (parseSILOptional(isDeadEnd, *this, "dead_end") ||

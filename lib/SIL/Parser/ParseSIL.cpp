@@ -2841,32 +2841,8 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     break;
   }
 
-  case SILInstructionKind::CondFailInst: {
-
-    if (parseTypedValueRef(Val, B))
-      return true;
-
-    SmallVector<char, 128> stringBuffer;
-    StringRef message;
-    if (P.consumeIf(tok::comma)) {
-      // Parse the string.
-      if (P.Tok.getKind() != tok::string_literal) {
-        P.diagnose(P.Tok, diag::expected_tok_in_sil_instr, "string");
-        return true;
-      }
-      SmallVector<Lexer::StringSegment, 1> segments;
-      P.L->getStringLiteralSegments(P.Tok, segments);
-      assert(segments.size() == 1);
-
-      P.consumeToken(tok::string_literal);
-      message = P.L->getEncodedStringSegment(segments.front(), stringBuffer);
-    }
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    ResultVal = B.createCondFail(InstLoc, Val, message);
-    break;
-  }
+  case SILInstructionKind::CondFailInst:
+    llvm_unreachable("CondFailInst is handled by SILInstructionParserVisitor");
 
   case SILInstructionKind::IncrementProfilerCounterInst: {
     // First argument is the counter index.
@@ -4646,117 +4622,25 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     case SILInstructionKind::TupleExtractInst:
       llvm_unreachable("TupleElementAddrInst/TupleExtractInst are handled by "
                        "SILInstructionParserVisitor");
-    case SILInstructionKind::ReturnInst: {
-      if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-        return true;
-      ResultVal = B.createReturn(InstLoc, Val);
-      break;
-    }
-    case SILInstructionKind::ThrowInst: {
-      if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-        return true;
-      ResultVal = B.createThrow(InstLoc, Val);
-      break;
-    }
-    case SILInstructionKind::ThrowAddrInst: {
-      if (parseSILDebugLocation(InstLoc, B))
-        return true;
-      ResultVal = B.createThrowAddr(InstLoc);
-      break;
-    }
-    case SILInstructionKind::UnwindInst: {
-      if (parseSILDebugLocation(InstLoc, B))
-        return true;
-      ResultVal = B.createUnwind(InstLoc);
-      break;
-    }
-    case SILInstructionKind::YieldInst: {
-      SmallVector<SILValue, 6> values;
-
-      // Parse a parenthesized (unless length-1), comma-separated list
-      // of yielded values.
-      if (P.consumeIf(tok::l_paren)) {
-        if (!P.Tok.is(tok::r_paren)) {
-          do {
-            if (parseTypedValueRef(Val, B))
-              return true;
-            values.push_back(Val);
-          } while (P.consumeIf(tok::comma));
-        }
-
-        if (P.parseToken(tok::r_paren, diag::expected_tok_in_sil_instr, ")"))
-          return true;
-
-      } else {
-        if (parseTypedValueRef(Val, B))
-          return true;
-        values.push_back(Val);
-      }
-
-      Identifier resumeName, unwindName;
-      SourceLoc resumeLoc, unwindLoc;
-      if (P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseVerbatim("resume") ||
-          parseSILIdentifier(resumeName, resumeLoc,
-                             diag::expected_sil_block_name) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseVerbatim("unwind") ||
-          parseSILIdentifier(unwindName, unwindLoc,
-                             diag::expected_sil_block_name) ||
-          parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      auto resumeBB = getBBForReference(resumeName, resumeLoc);
-      auto unwindBB = getBBForReference(unwindName, unwindLoc);
-      ResultVal = B.createYield(InstLoc, values, resumeBB, unwindBB);
-      break;
-    }
-    case SILInstructionKind::BranchInst: {
-      Identifier BBName;
-      SourceLoc NameLoc;
-      if (parseSILIdentifier(BBName, NameLoc, diag::expected_sil_block_name))
-        return true;
-
-      SmallVector<SILValue, 6> Args;
-      if (parseSILBBArgsAtBranch(Args, B))
-        return true;
-
-      if (parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      // Note, the basic block here could be a reference to an undefined
-      // basic block, which will be parsed later on.
-      ResultVal =
-          B.createBranch(InstLoc, getBBForReference(BBName, NameLoc), Args);
-      break;
-    }
-    case SILInstructionKind::CondBranchInst: {
-      UnresolvedValueName Cond;
-      Identifier BBName, BBName2;
-      SourceLoc NameLoc, NameLoc2;
-      SmallVector<SILValue, 6> Args, Args2;
-      if (parseValueName(Cond) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseSILIdentifier(BBName, NameLoc, diag::expected_sil_block_name) ||
-          parseSILBBArgsAtBranch(Args, B) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseSILIdentifier(BBName2, NameLoc2,
-                             diag::expected_sil_block_name) ||
-          parseSILBBArgsAtBranch(Args2, B) || parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      auto I1Ty = SILType::getBuiltinIntegerType(1, SILMod.getASTContext());
-      SILValue CondVal = getLocalValue(Cond, I1Ty, InstLoc, B);
-      ResultVal = B.createCondBranch(
-          InstLoc, CondVal, getBBForReference(BBName, NameLoc), Args,
-          getBBForReference(BBName2, NameLoc2), Args2);
-      break;
-    }
+    case SILInstructionKind::ReturnInst:
+      llvm_unreachable("ReturnInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::ThrowInst:
+      llvm_unreachable("ThrowInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::ThrowAddrInst:
+      llvm_unreachable(
+          "ThrowAddrInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::UnwindInst:
+      llvm_unreachable("UnwindInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::YieldInst:
+      llvm_unreachable("YieldInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::BranchInst:
+      llvm_unreachable("BranchInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::CondBranchInst:
+      llvm_unreachable(
+          "CondBranchInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::UnreachableInst:
-      if (parseSILDebugLocation(InstLoc, B))
-        return true;
-      ResultVal = B.createUnreachable(InstLoc);
-      break;
+      llvm_unreachable(
+          "UnreachableInst is handled by SILInstructionParserVisitor");
 
     case SILInstructionKind::ClassMethodInst:
     case SILInstructionKind::SuperMethodInst:

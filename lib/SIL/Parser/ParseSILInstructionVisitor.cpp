@@ -103,3 +103,4 @@ SILInstructionParserVisitor::dispatch(SILInstructionKind Opcode) {
 #include "ParseSILInstructionVisitorImpl/Phase3_5_CopyDestroy.inc"
 #include "ParseSILInstructionVisitorImpl/Phase3_6_MoveWrapper.inc"
 #include "ParseSILInstructionVisitorImpl/Phase3_7_Conversion.inc"
+#include "ParseSILInstructionVisitorImpl/Phase3_8_ControlFlow.inc"

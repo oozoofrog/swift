@@ -105,4 +105,14 @@ PARSE_SIL_VISITOR_ENTRY(MoveOnlyWrapperToCopyableValueInst)
 PARSE_SIL_VISITOR_ENTRY(MoveOnlyWrapperToCopyableAddrInst)
 PARSE_SIL_VISITOR_ENTRY(CopyableToMoveOnlyWrapperAddrInst)
 
+// Phase 7: Conversion/Cast instructions (8 instructions)
+PARSE_SIL_VISITOR_ENTRY(UncheckedRefCastInst)
+PARSE_SIL_VISITOR_ENTRY(UncheckedTrivialBitCastInst)
+PARSE_SIL_VISITOR_ENTRY(UncheckedBitwiseCastInst)
+PARSE_SIL_VISITOR_ENTRY(ConvertFunctionInst)
+PARSE_SIL_VISITOR_ENTRY(BridgeObjectToRefInst)
+PARSE_SIL_VISITOR_ENTRY(BridgeObjectToWordInst)
+PARSE_SIL_VISITOR_ENTRY(UpcastInst)
+PARSE_SIL_VISITOR_ENTRY(RefToRawPointerInst)
+
 #undef PARSE_SIL_VISITOR_ENTRY

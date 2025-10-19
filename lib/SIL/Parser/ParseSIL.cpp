@@ -3890,17 +3890,28 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     break;
   }
 
-  // Conversion instructions.
+  // Phase 7: Conversion/Cast instructions - migrated to visitor pattern
   case SILInstructionKind::UncheckedRefCastInst:
-  case SILInstructionKind::UncheckedAddrCastInst:
+    llvm_unreachable("UncheckedRefCastInst should be handled by visitor");
   case SILInstructionKind::UncheckedTrivialBitCastInst:
+    llvm_unreachable("UncheckedTrivialBitCastInst should be handled by visitor");
   case SILInstructionKind::UncheckedBitwiseCastInst:
-  case SILInstructionKind::UncheckedValueCastInst:
-  case SILInstructionKind::UpcastInst:
-  case SILInstructionKind::AddressToPointerInst:
+    llvm_unreachable("UncheckedBitwiseCastInst should be handled by visitor");
+  case SILInstructionKind::ConvertFunctionInst:
+    llvm_unreachable("ConvertFunctionInst should be handled by visitor");
   case SILInstructionKind::BridgeObjectToRefInst:
+    llvm_unreachable("BridgeObjectToRefInst should be handled by visitor");
   case SILInstructionKind::BridgeObjectToWordInst:
+    llvm_unreachable("BridgeObjectToWordInst should be handled by visitor");
+  case SILInstructionKind::UpcastInst:
+    llvm_unreachable("UpcastInst should be handled by visitor");
   case SILInstructionKind::RefToRawPointerInst:
+    llvm_unreachable("RefToRawPointerInst should be handled by visitor");
+
+  // Conversion instructions (remaining after Phase 7 migration).
+  case SILInstructionKind::UncheckedAddrCastInst:
+  case SILInstructionKind::UncheckedValueCastInst:
+  case SILInstructionKind::AddressToPointerInst:
   case SILInstructionKind::RawPointerToRefInst:
 #define LOADABLE_REF_STORAGE(Name, ...)                                        \
   case SILInstructionKind::RefTo##Name##Inst:                                  \
@@ -3909,7 +3920,6 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
   case SILInstructionKind::ThinToThickFunctionInst:
   case SILInstructionKind::ThickToObjCMetatypeInst:
   case SILInstructionKind::ObjCToThickMetatypeInst:
-  case SILInstructionKind::ConvertFunctionInst:
   case SILInstructionKind::ConvertEscapeToNoEscapeInst:
   case SILInstructionKind::ObjCExistentialMetatypeToObjectInst:
   case SILInstructionKind::ObjCMetatypeToObjectInst: {
@@ -3917,7 +3927,6 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     Identifier ToToken;
     SourceLoc ToLoc;
     bool not_guaranteed = false;
-    bool without_actually_escaping = false;
     bool needsStackProtection = false;
     if (Opcode == SILInstructionKind::ConvertEscapeToNoEscapeInst) {
       StringRef attrName;
@@ -3931,7 +3940,7 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
       if (parseSILOptional(needsStackProtection, *this, "stack_protection"))
         return true;
     }
-  
+
     if (parseTypedValueRef(Val, B) ||
         parseSILIdentifier(ToToken, ToLoc, diag::expected_tok_in_sil_instr,
                            "to"))
@@ -3940,15 +3949,6 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     if (ToToken.str() != "to") {
       P.diagnose(ToLoc, diag::expected_tok_in_sil_instr, "to");
       return true;
-    }
-    if (Opcode == SILInstructionKind::ConvertFunctionInst) {
-      StringRef attrName;
-      if (parseSILOptional(attrName, *this)) {
-        if (attrName == "without_actually_escaping")
-          without_actually_escaping = true;
-        else
-          return true;
-      }
     }
     if (parseSILType(Ty))
       return true;
@@ -3966,29 +3966,12 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     switch (Opcode) {
     default:
       llvm_unreachable("Out of sync with parent switch");
-    case SILInstructionKind::UncheckedRefCastInst:
-      ResultVal =
-          B.createUncheckedRefCast(InstLoc, Val, Ty, forwardingOwnership);
-      break;
     case SILInstructionKind::UncheckedAddrCastInst:
       ResultVal = B.createUncheckedAddrCast(InstLoc, Val, Ty);
-      break;
-    case SILInstructionKind::UncheckedTrivialBitCastInst:
-      ResultVal = B.createUncheckedTrivialBitCast(InstLoc, Val, Ty);
-      break;
-    case SILInstructionKind::UncheckedBitwiseCastInst:
-      ResultVal = B.createUncheckedBitwiseCast(InstLoc, Val, Ty);
       break;
     case SILInstructionKind::UncheckedValueCastInst:
       ResultVal =
           B.createUncheckedValueCast(InstLoc, Val, Ty, forwardingOwnership);
-      break;
-    case SILInstructionKind::UpcastInst:
-      ResultVal = B.createUpcast(InstLoc, Val, Ty, forwardingOwnership);
-      break;
-    case SILInstructionKind::ConvertFunctionInst:
-      ResultVal = B.createConvertFunction(
-          InstLoc, Val, Ty, without_actually_escaping, forwardingOwnership);
       break;
     case SILInstructionKind::ConvertEscapeToNoEscapeInst:
       ResultVal =
@@ -3996,16 +3979,6 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
       break;
     case SILInstructionKind::AddressToPointerInst:
       ResultVal = B.createAddressToPointer(InstLoc, Val, Ty, needsStackProtection);
-      break;
-    case SILInstructionKind::BridgeObjectToRefInst:
-      ResultVal =
-          B.createBridgeObjectToRef(InstLoc, Val, Ty, forwardingOwnership);
-      break;
-    case SILInstructionKind::BridgeObjectToWordInst:
-      ResultVal = B.createBridgeObjectToWord(InstLoc, Val);
-      break;
-    case SILInstructionKind::RefToRawPointerInst:
-      ResultVal = B.createRefToRawPointer(InstLoc, Val, Ty);
       break;
     case SILInstructionKind::RawPointerToRefInst:
       ResultVal = B.createRawPointerToRef(InstLoc, Val, Ty);

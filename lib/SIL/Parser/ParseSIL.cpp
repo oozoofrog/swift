@@ -13,6 +13,7 @@
 #include "SILParser.h"
 #include "SILParserFunctionBuilder.h"
 #include "SILParserState.h"
+#include "ParseSILInstructionVisitor.h"
 
 #include "swift/AST/ASTWalker.h"
 #include "swift/AST/ConformanceLookup.h"
@@ -2616,6 +2617,15 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
                                             SourceLoc OpcodeLoc,
                                             StringRef OpcodeName,
                                             SILInstruction *&ResultVal) {
+  // Phase 0: Try visitor pattern first
+  // If the instruction is migrated to the visitor, dispatch to it.
+  // Otherwise, fall back to the legacy switch statement below.
+  SILInstructionParserVisitor visitor(*this, B, OpcodeLoc, OpcodeName,
+                                       ResultVal);
+  if (auto handled = visitor.dispatch(Opcode))
+    return *handled;
+
+  // Legacy switch statement (fallback for unmigrated instructions)
   SmallVector<SILValue, 4> OpList;
   SILValue Val;
   SILType Ty;

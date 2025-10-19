@@ -1,0 +1,29 @@
+//===--- SILInstructionParser.def - SIL Instruction Parser ------*- C++ -*-===//
+//
+// This source file is part of the Swift.org open source project
+//
+// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See https://swift.org/LICENSE.txt for license information
+// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines macros used for generating SIL instruction parser visitor
+// methods. This is part of the refactoring effort to replace the large switch
+// statement in parseSpecificSILInstruction with a visitor pattern.
+//
+// Related GitHub Issue: swift#42962 (SR-340)
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef PARSE_SIL_VISITOR_ENTRY
+#define PARSE_SIL_VISITOR_ENTRY(ID)
+#endif
+
+// Phase 0: Initial infrastructure setup - AllocBoxInst only for testing
+// This will be expanded incrementally as we migrate more instructions
+PARSE_SIL_VISITOR_ENTRY(AllocBoxInst)
+
+#undef PARSE_SIL_VISITOR_ENTRY

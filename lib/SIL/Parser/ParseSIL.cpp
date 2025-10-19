@@ -2685,48 +2685,8 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
   // opcode we find.
 
   switch (Opcode) {
-  case SILInstructionKind::AllocBoxInst: {
-    auto hasDynamicLifetime = DoesNotHaveDynamicLifetime;
-    bool hasReflection = false;
-    UsesMoveableValueDebugInfo_t usesMoveableValueDebugInfo =
-        DoesNotUseMoveableValueDebugInfo;
-    auto hasPointerEscape = DoesNotHavePointerEscape;
-    StringRef attrName;
-    SourceLoc attrLoc;
-    while (parseSILOptional(attrName, attrLoc, *this)) {
-      if (attrName == "dynamic_lifetime") {
-        hasDynamicLifetime = HasDynamicLifetime;
-      } else if (attrName == "reflection") {
-        hasReflection = true;
-      } else if (attrName == "moveable_value_debuginfo") {
-        usesMoveableValueDebugInfo = UsesMoveableValueDebugInfo;
-      } else if (attrName == "pointer_escape") {
-        hasPointerEscape = HasPointerEscape;
-      } else {
-        P.diagnose(attrLoc, diag::sil_invalid_attribute_for_expected, attrName,
-                   "dynamic_lifetime, reflection, pointer_escape or "
-                   "usesMoveableValueDebugInfo");
-      }
-    }
-
-    SILType Ty;
-    if (parseSILType(Ty))
-      return true;
-    SILDebugVariable VarInfo;
-    if (parseSILDebugVar(VarInfo))
-      return true;
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    if (Ty.isMoveOnly())
-      usesMoveableValueDebugInfo = UsesMoveableValueDebugInfo;
-
-    ResultVal = B.createAllocBox(InstLoc, Ty.castTo<SILBoxType>(), VarInfo,
-                                 hasDynamicLifetime, hasReflection,
-                                 usesMoveableValueDebugInfo,
-                                 /*skipVarDeclAssert*/ false, hasPointerEscape);
-    break;
-  }
+  case SILInstructionKind::AllocBoxInst:
+    llvm_unreachable("AllocBoxInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::ApplyInst:
   case SILInstructionKind::BeginApplyInst:
   case SILInstructionKind::PartialApplyInst:

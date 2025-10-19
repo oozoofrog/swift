@@ -20,8 +20,39 @@
 #include "ParseSILInstructionVisitor.h"
 #include "SILParser.h"
 #include "swift/SIL/SILBuilder.h"
+#include "swift/SIL/SILDebugVariable.h"
+#include "swift/SIL/SILLocation.h"
+#include "swift/Parse/Lexer.h"
 
 using namespace swift;
+
+//===----------------------------------------------------------------------===//
+// Helper Functions (from ParseSIL.cpp)
+//===----------------------------------------------------------------------===//
+
+// Forward declaration of parseSILOptional from ParseSIL.cpp
+// These are static functions in ParseSIL.cpp that we need to access
+namespace {
+
+// Helper to parse optional attributes like [dynamic_lifetime]
+static bool parseSILOptional(StringRef &attrName, SourceLoc &attrLoc,
+                             SILParser &SP) {
+  if (!SP.P.consumeIf(tok::l_square))
+    return false;
+
+  Identifier parsedNameId;
+  if (SP.parseSILIdentifier(parsedNameId, attrLoc,
+                            diag::expected_in_attribute_list))
+    return true;
+  attrName = parsedNameId.str();
+
+  if (SP.P.parseToken(tok::r_square, diag::expected_in_attribute_list))
+    return true;
+
+  return true;
+}
+
+} // end anonymous namespace
 
 //===----------------------------------------------------------------------===//
 // Dispatch Implementation
@@ -45,10 +76,50 @@ SILInstructionParserVisitor::dispatch(SILInstructionKind Opcode) {
 // Visit Method Implementations
 //===----------------------------------------------------------------------===//
 
-// Phase 0: Stub implementation for AllocBoxInst
-// This will be replaced with actual parsing logic migrated from ParseSIL.cpp
+// Phase 1: Full implementation for AllocBoxInst
+// Migrated from ParseSIL.cpp case SILInstructionKind::AllocBoxInst
 bool SILInstructionParserVisitor::visitAllocBoxInst() {
-  // TODO: Migrate actual implementation from ParseSIL.cpp
-  // For now, return false (indicating parse failure) to trigger fallback
-  return false;
+  SILLocation InstLoc = RegularLocation(OpcodeLoc, /*implicit*/ false);
+
+  auto hasDynamicLifetime = DoesNotHaveDynamicLifetime;
+  bool hasReflection = false;
+  UsesMoveableValueDebugInfo_t usesMoveableValueDebugInfo =
+      DoesNotUseMoveableValueDebugInfo;
+  auto hasPointerEscape = DoesNotHavePointerEscape;
+  StringRef attrName;
+  SourceLoc attrLoc;
+
+  while (parseSILOptional(attrName, attrLoc, P)) {
+    if (attrName == "dynamic_lifetime") {
+      hasDynamicLifetime = HasDynamicLifetime;
+    } else if (attrName == "reflection") {
+      hasReflection = true;
+    } else if (attrName == "moveable_value_debuginfo") {
+      usesMoveableValueDebugInfo = UsesMoveableValueDebugInfo;
+    } else if (attrName == "pointer_escape") {
+      hasPointerEscape = HasPointerEscape;
+    } else {
+      P.P.diagnose(attrLoc, diag::sil_invalid_attribute_for_expected, attrName,
+                   "dynamic_lifetime, reflection, pointer_escape or "
+                   "usesMoveableValueDebugInfo");
+    }
+  }
+
+  SILType Ty;
+  if (P.parseSILType(Ty))
+    return true;
+  SILDebugVariable VarInfo;
+  if (P.parseSILDebugVar(VarInfo))
+    return true;
+  if (P.parseSILDebugLocation(InstLoc, B))
+    return true;
+
+  if (Ty.isMoveOnly())
+    usesMoveableValueDebugInfo = UsesMoveableValueDebugInfo;
+
+  ResultVal = B.createAllocBox(InstLoc, Ty.castTo<SILBoxType>(), VarInfo,
+                               hasDynamicLifetime, hasReflection,
+                               usesMoveableValueDebugInfo,
+                               /*skipVarDeclAssert*/ false, hasPointerEscape);
+  return false; // Success
 }

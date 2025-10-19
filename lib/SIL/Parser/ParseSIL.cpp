@@ -3518,41 +3518,8 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     break;
   }
 
-  case SILInstructionKind::MoveValueInst: {
-    bool allowsDiagnostics = false;
-    auto isLexical = IsNotLexical;
-    auto hasPointerEscape = DoesNotHavePointerEscape;
-    auto fromVarDecl = IsNotFromVarDecl;
-
-    StringRef AttrName;
-    SourceLoc AttrLoc;
-    while (parseSILOptional(AttrName, AttrLoc, *this)) {
-      if (AttrName == "allows_diagnostics")
-        allowsDiagnostics = true;
-      else if (AttrName == "lexical")
-        isLexical = IsLexical;
-      else if (AttrName == "pointer_escape")
-        hasPointerEscape = HasPointerEscape;
-      else if (AttrName == "var_decl")
-        fromVarDecl = IsFromVarDecl;
-      else {
-        P.diagnose(InstLoc.getSourceLoc(),
-                   diag::sil_invalid_attribute_for_instruction, AttrName,
-                   "move_value");
-        return true;
-      }
-    }
-
-    if (parseTypedValueRef(Val, B))
-      return true;
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-    auto *MVI = B.createMoveValue(InstLoc, Val, isLexical, hasPointerEscape,
-                                  fromVarDecl);
-    MVI->setAllowsDiagnostics(allowsDiagnostics);
-    ResultVal = MVI;
-    break;
-  }
+  case SILInstructionKind::MoveValueInst:
+    llvm_unreachable("MoveValueInst is handled by SILInstructionParserVisitor");
 
   case SILInstructionKind::DropDeinitInst: {
     if (parseTypedValueRef(Val, B))
@@ -3563,52 +3530,8 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     break;
   }
 
-  case SILInstructionKind::MarkUnresolvedNonCopyableValueInst: {
-    StringRef AttrName;
-    if (!parseSILOptional(AttrName, *this)) {
-      auto diag = diag::sil_markmustcheck_requires_attribute;
-      P.diagnose(InstLoc.getSourceLoc(), diag);
-      return true;
-    }
-    
-    auto Strict = MarkUnresolvedNonCopyableValueInst::IsNotStrict;
-    if (AttrName == "strict") {
-      Strict = MarkUnresolvedNonCopyableValueInst::IsStrict;
-      if (!parseSILOptional(AttrName, *this)) {
-        auto diag = diag::sil_markmustcheck_requires_attribute;
-        P.diagnose(InstLoc.getSourceLoc(), diag);
-        return true;
-      }
-    }
-
-    using CheckKind = MarkUnresolvedNonCopyableValueInst::CheckKind;
-    CheckKind CKind =
-        llvm::StringSwitch<CheckKind>(AttrName)
-            .Case("consumable_and_assignable",
-                  CheckKind::ConsumableAndAssignable)
-            .Case("no_consume_or_assign", CheckKind::NoConsumeOrAssign)
-            .Case("assignable_but_not_consumable",
-                  CheckKind::AssignableButNotConsumable)
-            .Case("initable_but_not_consumable",
-                  CheckKind::InitableButNotConsumable)
-            .Default(CheckKind::Invalid);
-
-    if (CKind == CheckKind::Invalid) {
-      auto diag = diag::sil_markmustcheck_invalid_attribute;
-      P.diagnose(InstLoc.getSourceLoc(), diag, AttrName);
-      return true;
-    }
-
-    if (parseTypedValueRef(Val, B))
-      return true;
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    auto *MVI = B.createMarkUnresolvedNonCopyableValueInst(InstLoc, Val, CKind,
-                                                           Strict);
-    ResultVal = MVI;
-    break;
-  }
+  case SILInstructionKind::MarkUnresolvedNonCopyableValueInst:
+    llvm_unreachable("MarkUnresolvedNonCopyableValueInst is handled by SILInstructionParserVisitor");
 
   case SILInstructionKind::MarkUnresolvedReferenceBindingInst: {
     StringRef AttrName;
@@ -3639,97 +3562,11 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     break;
   }
 
-  case SILInstructionKind::CopyableToMoveOnlyWrapperValueInst: {
-    StringRef AttrName;
-    if (!parseSILOptional(AttrName, *this)) {
-      auto diag = diag::sil_moveonlytocopyable_requires_attribute;
-      P.diagnose(InstLoc.getSourceLoc(), diag);
-      return true;
-    }
+  case SILInstructionKind::CopyableToMoveOnlyWrapperValueInst:
+    llvm_unreachable("CopyableToMoveOnlyWrapperValueInst is handled by SILInstructionParserVisitor");
 
-    OwnershipKind OwnershipKind =
-        llvm::StringSwitch<ValueOwnershipKind>(AttrName)
-            .Case("owned", OwnershipKind::Owned)
-            .Case("guaranteed", OwnershipKind::Guaranteed)
-            .Default(OwnershipKind::None);
-
-    if (OwnershipKind == OwnershipKind::None) {
-      auto diag = diag::sil_moveonlytocopyable_invalid_attribute;
-      P.diagnose(InstLoc.getSourceLoc(), diag, AttrName);
-      return true;
-    }
-
-    if (parseTypedValueRef(Val, B))
-      return true;
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    if (!Val->getType().isObject()) {
-      P.diagnose(InstLoc.getSourceLoc(),
-                 diag::sil_operand_not_object, "operand", OpcodeName);
-      return true;
-    }
-
-    if (Val->getType().isMoveOnlyWrapped()) {
-      P.diagnose(InstLoc.getSourceLoc(),
-                 diag::sil_operand_has_incorrect_moveonlywrapped,
-                 "operand", OpcodeName, 1);
-      return true;
-    }
-
-    if (OwnershipKind == OwnershipKind::Owned)
-      ResultVal = B.createOwnedCopyableToMoveOnlyWrapperValue(InstLoc, Val);
-    else
-      ResultVal =
-          B.createGuaranteedCopyableToMoveOnlyWrapperValue(InstLoc, Val);
-    break;
-  }
-
-  case SILInstructionKind::MoveOnlyWrapperToCopyableValueInst: {
-    StringRef AttrName;
-    if (!parseSILOptional(AttrName, *this)) {
-      auto diag = diag::sil_moveonlytocopyable_requires_attribute;
-      P.diagnose(InstLoc.getSourceLoc(), diag);
-      return true;
-    }
-
-    OwnershipKind OwnershipKind =
-        llvm::StringSwitch<ValueOwnershipKind>(AttrName)
-            .Case("owned", OwnershipKind::Owned)
-            .Case("guaranteed", OwnershipKind::Guaranteed)
-            .Default(OwnershipKind::None);
-
-    if (OwnershipKind == OwnershipKind::None) {
-      auto diag = diag::sil_moveonlytocopyable_invalid_attribute;
-      P.diagnose(InstLoc.getSourceLoc(), diag, AttrName);
-      return true;
-    }
-
-    if (parseTypedValueRef(Val, B))
-      return true;
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    if (!Val->getType().isObject()) {
-      P.diagnose(InstLoc.getSourceLoc(),
-                 diag::sil_operand_not_object, "operand", OpcodeName);
-      return true;
-    }
-
-    if (!Val->getType().isMoveOnlyWrapped()) {
-      P.diagnose(InstLoc.getSourceLoc(),
-                 diag::sil_operand_has_incorrect_moveonlywrapped,
-                 "operand", OpcodeName, 0);
-      return true;
-    }
-
-    if (OwnershipKind == OwnershipKind::Owned)
-      ResultVal = B.createOwnedMoveOnlyWrapperToCopyableValue(InstLoc, Val);
-    else
-      ResultVal =
-          B.createGuaranteedMoveOnlyWrapperToCopyableValue(InstLoc, Val);
-    break;
-  }
+  case SILInstructionKind::MoveOnlyWrapperToCopyableValueInst:
+    llvm_unreachable("MoveOnlyWrapperToCopyableValueInst is handled by SILInstructionParserVisitor");
 
   case SILInstructionKind::LoadInst:
     llvm_unreachable("LoadInst is handled by SILInstructionParserVisitor");
@@ -4477,29 +4314,8 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     break;
   }
 
-  case SILInstructionKind::MoveOnlyWrapperToCopyableAddrInst: {
-    SILValue addrVal;
-    SourceLoc addrLoc;
-    if (parseTypedValueRef(addrVal, addrLoc, B))
-      return true;
-
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    if (!addrVal->getType().isAddress()) {
-      P.diagnose(addrLoc, diag::sil_operand_not_address, "operand", OpcodeName);
-      return true;
-    }
-
-    if (!addrVal->getType().isMoveOnlyWrapped()) {
-      P.diagnose(addrLoc, diag::sil_operand_has_incorrect_moveonlywrapped,
-                 "operand", OpcodeName, 0);
-      return true;
-    }
-
-    ResultVal = B.createMoveOnlyWrapperToCopyableAddr(InstLoc, addrVal);
-    break;
-  }
+  case SILInstructionKind::MoveOnlyWrapperToCopyableAddrInst:
+    llvm_unreachable("MoveOnlyWrapperToCopyableAddrInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::MoveOnlyWrapperToCopyableBoxInst: {
     SILValue addrVal;
     SourceLoc addrLoc;
@@ -4524,29 +4340,8 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     ResultVal = B.createMoveOnlyWrapperToCopyableBox(InstLoc, addrVal);
     break;
   }
-  case SILInstructionKind::CopyableToMoveOnlyWrapperAddrInst: {
-    SILValue addrVal;
-    SourceLoc addrLoc;
-    if (parseTypedValueRef(addrVal, addrLoc, B))
-      return true;
-
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    if (!addrVal->getType().isAddress()) {
-      P.diagnose(addrLoc, diag::sil_operand_not_address, "operand", OpcodeName);
-      return true;
-    }
-
-    if (addrVal->getType().isMoveOnlyWrapped()) {
-      P.diagnose(addrLoc, diag::sil_operand_has_incorrect_moveonlywrapped,
-                 "operand", OpcodeName, 1);
-      return true;
-    }
-
-    ResultVal = B.createCopyableToMoveOnlyWrapperAddr(InstLoc, addrVal);
-    break;
-  }
+  case SILInstructionKind::CopyableToMoveOnlyWrapperAddrInst:
+    llvm_unreachable("CopyableToMoveOnlyWrapperAddrInst is handled by SILInstructionParserVisitor");
 
   case SILInstructionKind::AssignOrInitInst: {
     ValueDecl *Prop;

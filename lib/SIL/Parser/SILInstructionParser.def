@@ -97,4 +97,12 @@ PARSE_SIL_VISITOR_ENTRY(CopyAddrInst)
 PARSE_SIL_VISITOR_ENTRY(ExplicitCopyAddrInst)
 PARSE_SIL_VISITOR_ENTRY(MarkUnresolvedMoveAddrInst)
 
+// Phase 6: Move/Wrapper instructions (6 instructions)
+PARSE_SIL_VISITOR_ENTRY(MoveValueInst)
+PARSE_SIL_VISITOR_ENTRY(MarkUnresolvedNonCopyableValueInst)
+PARSE_SIL_VISITOR_ENTRY(CopyableToMoveOnlyWrapperValueInst)
+PARSE_SIL_VISITOR_ENTRY(MoveOnlyWrapperToCopyableValueInst)
+PARSE_SIL_VISITOR_ENTRY(MoveOnlyWrapperToCopyableAddrInst)
+PARSE_SIL_VISITOR_ENTRY(CopyableToMoveOnlyWrapperAddrInst)
+
 #undef PARSE_SIL_VISITOR_ENTRY

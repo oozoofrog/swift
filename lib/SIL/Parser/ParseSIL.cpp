@@ -3381,27 +3381,8 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     ResultVal = B.createHopToExecutor(InstLoc, Val, mandatory);
     break;
   }
-  case SILInstructionKind::DestroyValueInst: {
-    PoisonRefs_t poisonRefs = DontPoisonRefs;
-    IsDeadEnd_t isDeadEnd = IsntDeadEnd;
-    StringRef attributeName;
-    SourceLoc attributeLoc;
-    while (parseSILOptional(attributeName, attributeLoc, *this)) {
-      if (attributeName == "poison")
-        poisonRefs = PoisonRefs;
-      else if (attributeName == "dead_end")
-        isDeadEnd = IsDeadEnd;
-      else {
-        P.diagnose(attributeLoc, diag::sil_invalid_attribute_for_instruction,
-                   attributeName, "destroy_value");
-        return true;
-      }
-    }
-    if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createDestroyValue(InstLoc, Val, poisonRefs, isDeadEnd);
-    break;
-  }
+  case SILInstructionKind::DestroyValueInst:
+    llvm_unreachable("DestroyValueInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::BeginCOWMutationInst: {
     bool native = false;
     if (parseSILOptional(native, *this, "native") ||
@@ -3426,18 +3407,8 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     ResultVal = B.createEndCOWMutationAddr(InstLoc, Val);
     break;
   }
-  case SILInstructionKind::DestroyNotEscapedClosureInst: {
-    bool IsObjcVerificationType = false;
-    if (parseSILOptional(IsObjcVerificationType, *this, "objc"))
-      return true;
-    if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createDestroyNotEscapedClosure(
-        InstLoc, Val,
-        IsObjcVerificationType ? DestroyNotEscapedClosureInst::ObjCEscaping
-                              : DestroyNotEscapedClosureInst::WithoutActuallyEscaping);
-    break;
-  }
+  case SILInstructionKind::DestroyNotEscapedClosureInst:
+    llvm_unreachable("DestroyNotEscapedClosureInst is handled by SILInstructionParserVisitor");
 
   case SILInstructionKind::DebugValueInst: {
     PoisonRefs_t poisonRefs = DontPoisonRefs;
@@ -5094,94 +5065,12 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
                                         MethodTy);
       break;
     }
-    case SILInstructionKind::CopyAddrInst: {
-      bool IsTake = false, IsInit = false;
-      UnresolvedValueName SrcLName;
-      SILValue DestLVal;
-      SourceLoc ToLoc, DestLoc;
-      Identifier ToToken;
-      if (parseSILOptional(IsTake, *this, "take") || parseValueName(SrcLName) ||
-          parseSILIdentifier(ToToken, ToLoc, diag::expected_tok_in_sil_instr,
-                             "to") ||
-          parseSILOptional(IsInit, *this, "init") ||
-          parseTypedValueRef(DestLVal, DestLoc, B) ||
-          parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      if (ToToken.str() != "to") {
-        P.diagnose(ToLoc, diag::expected_tok_in_sil_instr, "to");
-        return true;
-      }
-
-      if (!DestLVal->getType().isAddress()) {
-        P.diagnose(DestLoc, diag::sil_invalid_instr_operands);
-        return true;
-      }
-
-      SILValue SrcLVal =
-          getLocalValue(SrcLName, DestLVal->getType(), InstLoc, B);
-      ResultVal = B.createCopyAddr(InstLoc, SrcLVal, DestLVal, IsTake_t(IsTake),
-                                   IsInitialization_t(IsInit));
-      break;
-    }
-    case SILInstructionKind::ExplicitCopyAddrInst: {
-      bool IsTake = false, IsInit = false;
-      UnresolvedValueName SrcLName;
-      SILValue DestLVal;
-      SourceLoc ToLoc, DestLoc;
-      Identifier ToToken;
-      if (parseSILOptional(IsTake, *this, "take") || parseValueName(SrcLName) ||
-          parseSILIdentifier(ToToken, ToLoc, diag::expected_tok_in_sil_instr,
-                             "to") ||
-          parseSILOptional(IsInit, *this, "init") ||
-          parseTypedValueRef(DestLVal, DestLoc, B) ||
-          parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      if (ToToken.str() != "to") {
-        P.diagnose(ToLoc, diag::expected_tok_in_sil_instr, "to");
-        return true;
-      }
-
-      if (!DestLVal->getType().isAddress()) {
-        P.diagnose(DestLoc, diag::sil_invalid_instr_operands);
-        return true;
-      }
-
-      SILValue SrcLVal =
-          getLocalValue(SrcLName, DestLVal->getType(), InstLoc, B);
-      ResultVal =
-          B.createExplicitCopyAddr(InstLoc, SrcLVal, DestLVal, IsTake_t(IsTake),
-                                   IsInitialization_t(IsInit));
-      break;
-    }
-    case SILInstructionKind::MarkUnresolvedMoveAddrInst: {
-      UnresolvedValueName SrcLName;
-      SILValue DestLVal;
-      SourceLoc ToLoc, DestLoc;
-      Identifier ToToken;
-      if (parseValueName(SrcLName) ||
-          parseSILIdentifier(ToToken, ToLoc, diag::expected_tok_in_sil_instr,
-                             "to") ||
-          parseTypedValueRef(DestLVal, DestLoc, B) ||
-          parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      if (ToToken.str() != "to") {
-        P.diagnose(ToLoc, diag::expected_tok_in_sil_instr, "to");
-        return true;
-      }
-
-      if (!DestLVal->getType().isAddress()) {
-        P.diagnose(DestLoc, diag::sil_invalid_instr_operands);
-        return true;
-      }
-
-      SILValue SrcLVal =
-          getLocalValue(SrcLName, DestLVal->getType(), InstLoc, B);
-      ResultVal = B.createMarkUnresolvedMoveAddr(InstLoc, SrcLVal, DestLVal);
-      break;
-    }
+    case SILInstructionKind::CopyAddrInst:
+      llvm_unreachable("CopyAddrInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::ExplicitCopyAddrInst:
+      llvm_unreachable("ExplicitCopyAddrInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::MarkUnresolvedMoveAddrInst:
+      llvm_unreachable("MarkUnresolvedMoveAddrInst is handled by SILInstructionParserVisitor");
 
     case SILInstructionKind::BindMemoryInst: {
       SILValue IndexVal;

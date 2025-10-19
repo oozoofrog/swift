@@ -90,4 +90,11 @@ PARSE_SIL_VISITOR_ENTRY(LoadBorrowInst)
 PARSE_SIL_VISITOR_ENTRY(StoreInst)
 PARSE_SIL_VISITOR_ENTRY(StoreBorrowInst)
 
+// Phase 5: Copy/Destroy/Move instructions (5 instructions)
+PARSE_SIL_VISITOR_ENTRY(DestroyValueInst)
+PARSE_SIL_VISITOR_ENTRY(DestroyNotEscapedClosureInst)
+PARSE_SIL_VISITOR_ENTRY(CopyAddrInst)
+PARSE_SIL_VISITOR_ENTRY(ExplicitCopyAddrInst)
+PARSE_SIL_VISITOR_ENTRY(MarkUnresolvedMoveAddrInst)
+
 #undef PARSE_SIL_VISITOR_ENTRY

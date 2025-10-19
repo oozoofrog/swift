@@ -22,8 +22,28 @@
 #define PARSE_SIL_VISITOR_ENTRY(ID)
 #endif
 
-// Phase 0: Initial infrastructure setup - AllocBoxInst only for testing
-// This will be expanded incrementally as we migrate more instructions
+// Phase 1: AllocBoxInst (1 instruction) - Infrastructure validation
 PARSE_SIL_VISITOR_ENTRY(AllocBoxInst)
+
+// Phase 2: Basic instructions (14 instructions total)
+// Apply-family (6 instructions)
+PARSE_SIL_VISITOR_ENTRY(ApplyInst)
+PARSE_SIL_VISITOR_ENTRY(BeginApplyInst)
+PARSE_SIL_VISITOR_ENTRY(PartialApplyInst)
+PARSE_SIL_VISITOR_ENTRY(TryApplyInst)
+PARSE_SIL_VISITOR_ENTRY(AbortApplyInst)
+PARSE_SIL_VISITOR_ENTRY(EndApplyInst)
+
+// Tuple-family (5 instructions)
+PARSE_SIL_VISITOR_ENTRY(TupleInst)
+PARSE_SIL_VISITOR_ENTRY(TupleExtractInst)
+PARSE_SIL_VISITOR_ENTRY(TupleElementAddrInst)
+PARSE_SIL_VISITOR_ENTRY(TuplePackExtractInst)
+PARSE_SIL_VISITOR_ENTRY(TuplePackElementAddrInst)
+
+// Metatype-family (3 instructions)
+PARSE_SIL_VISITOR_ENTRY(MetatypeInst)
+PARSE_SIL_VISITOR_ENTRY(ValueMetatypeInst)
+PARSE_SIL_VISITOR_ENTRY(ExistentialMetatypeInst)
 
 #undef PARSE_SIL_VISITOR_ENTRY

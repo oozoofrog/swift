@@ -2691,36 +2691,12 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
   case SILInstructionKind::BeginApplyInst:
   case SILInstructionKind::PartialApplyInst:
   case SILInstructionKind::TryApplyInst:
-    if (parseCallInstruction(InstLoc, Opcode, B, ResultVal))
-      return true;
-    break;
-  case SILInstructionKind::AbortApplyInst: {
-    UnresolvedValueName argName;
-    if (parseValueName(argName))
-      return true;
-
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    SILType expectedTy = SILType::getSILTokenType(P.Context);
-    SILValue op = getLocalValue(argName, expectedTy, InstLoc, B);
-    ResultVal = B.createAbortApply(InstLoc, op);
-    break;
-  }
-  case SILInstructionKind::EndApplyInst: {
-    UnresolvedValueName argName;
-    SILType ResultTy;
-
-    if (parseValueName(argName) || parseVerbatim("as") ||
-        parseSILType(ResultTy) || parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    SILType expectedTy = SILType::getSILTokenType(P.Context);
-    SILValue op = getLocalValue(argName, expectedTy, InstLoc, B);
-
-    ResultVal = B.createEndApply(InstLoc, op, ResultTy);
-    break;
-  }
+    llvm_unreachable("Apply-family instructions are handled by "
+                     "SILInstructionParserVisitor");
+  case SILInstructionKind::AbortApplyInst:
+    llvm_unreachable("AbortApplyInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::EndApplyInst:
+    llvm_unreachable("EndApplyInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::IntegerLiteralInst: {
     SILType Ty;
     if (parseSILType(Ty) ||
@@ -3321,29 +3297,10 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     ResultVal = B.createPackElementSet(InstLoc, value, index, pack);
     break;
   }
-  case SILInstructionKind::TuplePackElementAddrInst: {
-    SILValue index, tuple;
-    SILType elementType;
-    if (parseValueRef(index, SILType::getPackIndexType(P.Context), InstLoc, B) ||
-        parseVerbatim("of") ||
-        parseTypedValueRef(tuple, B) ||
-        parseVerbatim("as") ||
-        parseSILType(elementType))
-      return true;
-    ResultVal = B.createTuplePackElementAddr(InstLoc, index, tuple, elementType);
-    break;
-  }
-  case SILInstructionKind::TuplePackExtractInst: {
-    SILValue index, tuple;
-    SILType elementType;
-    if (parseValueRef(index, SILType::getPackIndexType(P.Context), InstLoc,
-                      B) ||
-        parseVerbatim("of") || parseTypedValueRef(tuple, B) ||
-        parseVerbatim("as") || parseSILType(elementType))
-      return true;
-    ResultVal = B.createTuplePackExtract(InstLoc, index, tuple, elementType);
-    break;
-  }
+  case SILInstructionKind::TuplePackElementAddrInst:
+    llvm_unreachable("TuplePackElementAddrInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::TuplePackExtractInst:
+    llvm_unreachable("TuplePackExtractInst is handled by SILInstructionParserVisitor");
 
 #define UNARY_INSTRUCTION(ID)                                                  \
   case SILInstructionKind::ID##Inst:                                           \
@@ -4974,17 +4931,8 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
                              isFromVarDecl, usesMoveableValueDebugInfo);
     break;
   }
-  case SILInstructionKind::MetatypeInst: {
-    SILType Ty;
-    if (parseSILType(Ty))
-      return true;
-
-    assert(Opcode == SILInstructionKind::MetatypeInst);
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createMetatype(InstLoc, Ty);
-    break;
-  }
+  case SILInstructionKind::MetatypeInst:
+    llvm_unreachable("MetatypeInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::AllocRefInst:
   case SILInstructionKind::AllocRefDynamicInst: {
     bool IsObjC = false;
@@ -5100,27 +5048,9 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     break;
   }
     case SILInstructionKind::ValueMetatypeInst:
-    case SILInstructionKind::ExistentialMetatypeInst: {
-      SILType Ty;
-      if (parseSILType(Ty) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-        return true;
-      switch (Opcode) {
-      default:
-        llvm_unreachable("Out of sync with parent switch");
-      case SILInstructionKind::ValueMetatypeInst:
-        ResultVal = B.createValueMetatype(InstLoc, Ty, Val);
-        break;
-      case SILInstructionKind::ExistentialMetatypeInst:
-        ResultVal = B.createExistentialMetatype(InstLoc, Ty, Val);
-        break;
-      case SILInstructionKind::DeallocBoxInst:
-        ResultVal = B.createDeallocBox(InstLoc, Val);
-        break;
-      }
-      break;
-    }
+    case SILInstructionKind::ExistentialMetatypeInst:
+      llvm_unreachable("ValueMetatypeInst/ExistentialMetatypeInst are handled by "
+                       "SILInstructionParserVisitor");
     case SILInstructionKind::DeallocExistentialBoxInst: {
       CanType ConcreteTy;
       if (parseTypedValueRef(Val, B) ||
@@ -5132,90 +5062,8 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
       ResultVal = B.createDeallocExistentialBox(InstLoc, ConcreteTy, Val);
       break;
     }
-    case SILInstructionKind::TupleInst: {
-      // Tuple instructions have two different syntaxes, one for simple tuple
-      // types, one for complicated ones.
-      if (P.Tok.isNot(tok::sil_dollar)) {
-        // If there is no type, parse the simple form.
-        if (P.parseToken(tok::l_paren, diag::expected_tok_in_sil_instr, "("))
-          return true;
-
-        // TODO: Check for a type here.  This is how tuples with "interesting"
-        // types are described.
-
-        // This form is used with tuples that have elements with no names or
-        // default values.
-        SmallVector<TupleTypeElt, 4> TypeElts;
-        if (P.Tok.isNot(tok::r_paren)) {
-          do {
-            if (parseTypedValueRef(Val, B))
-              return true;
-            OpList.push_back(Val);
-            TypeElts.push_back(Val->getType().getRawASTType());
-          } while (P.consumeIf(tok::comma));
-        }
-        HadError |=
-            P.parseToken(tok::r_paren, diag::expected_tok_in_sil_instr, ")");
-
-        auto Ty = TupleType::get(TypeElts, P.Context);
-        auto Ty2 = SILType::getPrimitiveObjectType(Ty->getCanonicalType());
-
-        ValueOwnershipKind forwardingOwnership =
-            F && F->hasOwnership() ? getSILValueOwnership(OpList)
-                                   : ValueOwnershipKind(OwnershipKind::None);
-
-        if (parseForwardingOwnershipKind(forwardingOwnership)
-            || parseSILDebugLocation(InstLoc, B))
-          return true;
-
-        ResultVal = B.createTuple(InstLoc, Ty2, OpList, forwardingOwnership);
-        break;
-      }
-
-      // Otherwise, parse the fully general form.
-      SILType Ty;
-      if (parseSILType(Ty) ||
-          P.parseToken(tok::l_paren, diag::expected_tok_in_sil_instr, "("))
-        return true;
-
-      TupleType *TT = Ty.getAs<TupleType>();
-      if (TT == nullptr) {
-        P.diagnose(OpcodeLoc, diag::expected_tuple_type_in_tuple);
-        return true;
-      }
-
-      SmallVector<TupleTypeElt, 4> TypeElts;
-      if (P.Tok.isNot(tok::r_paren)) {
-        do {
-          if (TypeElts.size() > TT->getNumElements()) {
-            P.diagnose(P.Tok, diag::sil_tuple_inst_wrong_value_count,
-                       TT->getNumElements());
-            return true;
-          }
-          Type EltTy = TT->getElement(TypeElts.size()).getType();
-          if (parseValueRef(
-                  Val,
-                  SILType::getPrimitiveObjectType(EltTy->getCanonicalType()),
-                  RegularLocation(P.Tok.getLoc()), B))
-            return true;
-          OpList.push_back(Val);
-          TypeElts.push_back(Val->getType().getRawASTType());
-        } while (P.consumeIf(tok::comma));
-      }
-      HadError |= P.parseToken(tok::r_paren,
-                               diag::expected_tok_in_sil_instr,")");
-
-      if (TypeElts.size() != TT->getNumElements()) {
-        P.diagnose(OpcodeLoc, diag::sil_tuple_inst_wrong_value_count,
-                   TT->getNumElements());
-        return true;
-      }
-
-      if (parseSILDebugLocation(InstLoc, B))
-        return true;
-      ResultVal = B.createTuple(InstLoc, Ty, OpList);
-      break;
-    }
+    case SILInstructionKind::TupleInst:
+      llvm_unreachable("TupleInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::TupleAddrConstructorInst: {
       // First parse [init] or [assign].
       StringRef InitOrAssign;
@@ -5356,41 +5204,9 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
       break;
     }
     case SILInstructionKind::TupleElementAddrInst:
-    case SILInstructionKind::TupleExtractInst: {
-      SourceLoc NameLoc;
-      if (parseTypedValueRef(Val, B) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ","))
-        return true;
-
-      unsigned Field = 0;
-      TupleType *TT = Val->getType().castTo<TupleType>();
-      if (P.Tok.isNot(tok::integer_literal) ||
-          parseIntegerLiteral(P.Tok.getText(), 10, Field) ||
-          Field >= TT->getNumElements()) {
-        P.diagnose(P.Tok, diag::sil_tuple_inst_wrong_field);
-        return true;
-      }
-      P.consumeToken(tok::integer_literal);
-      ValueOwnershipKind forwardingOwnership = Val->getOwnershipKind();
-
-      if (Opcode == SILInstructionKind::TupleExtractInst) {
-        if (parseForwardingOwnershipKind(forwardingOwnership))
-          return true;
-      }
-
-      if (parseSILDebugLocation(InstLoc, B))
-        return true;
-      auto ResultTy = TT->getElement(Field).getType()->getCanonicalType();
-      if (Opcode == SILInstructionKind::TupleElementAddrInst)
-        ResultVal = B.createTupleElementAddr(
-            InstLoc, Val, Field, SILType::getPrimitiveAddressType(ResultTy));
-      else {
-        ResultVal = B.createTupleExtract(
-            InstLoc, Val, Field, SILType::getPrimitiveObjectType(ResultTy),
-            forwardingOwnership);
-      }
-      break;
-    }
+    case SILInstructionKind::TupleExtractInst:
+      llvm_unreachable("TupleElementAddrInst/TupleExtractInst are handled by "
+                       "SILInstructionParserVisitor");
     case SILInstructionKind::ReturnInst: {
       if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
         return true;

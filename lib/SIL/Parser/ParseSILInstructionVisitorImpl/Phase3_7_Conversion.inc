@@ -1,6 +1,6 @@
-//===--- Phase7_Conversion.inc - Phase 7 Visit Methods -----------*- C++ -*-===//
+//===--- Phase3_7_Conversion.inc - Phase 3-7 Visit Methods ----------*- C++ -*-===//
 //
-// Phase 7: Conversion/Cast Instructions (8 instructions)
+// Phase 3-7: Conversion/Cast Instructions (8 instructions)
 //   - Helper: parseValueToType
 //   - UncheckedRefCast, UncheckedTrivialBitCast, UncheckedBitwiseCast
 //   - ConvertFunction, BridgeObjectToRef, BridgeObjectToWord

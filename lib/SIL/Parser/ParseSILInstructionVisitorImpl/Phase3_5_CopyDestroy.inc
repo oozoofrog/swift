@@ -1,6 +1,6 @@
-//===--- Phase5_CopyDestroy.inc - Phase 5 Visit Methods ----------*- C++ -*-===//
+//===--- Phase3_5_CopyDestroy.inc - Phase 3-5 Visit Methods --------*- C++ -*-===//
 //
-// Phase 5: Copy/Destroy/Move Instructions (5 instructions)
+// Phase 3-5: Copy/Destroy/Move Instructions (5 instructions)
 //   - DestroyValue, DestroyNotEscapedClosure
 //   - CopyAddr, ExplicitCopyAddr, MarkUnresolvedMoveAddr
 //

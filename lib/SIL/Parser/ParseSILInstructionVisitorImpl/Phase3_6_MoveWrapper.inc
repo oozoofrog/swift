@@ -1,6 +1,6 @@
-//===--- Phase6_MoveWrapper.inc - Phase 6 Visit Methods ----------*- C++ -*-===//
+//===--- Phase3_6_MoveWrapper.inc - Phase 3-6 Visit Methods --------*- C++ -*-===//
 //
-// Phase 6: Move/Wrapper Instructions (6 instructions)
+// Phase 3-6: Move/Wrapper Instructions (6 instructions)
 //   - MoveValue, MarkUnresolvedNonCopyableValue
 //   - CopyableToMoveOnlyWrapperValue/Addr
 //   - MoveOnlyWrapperToCopyableValue/Addr

@@ -1,6 +1,6 @@
-//===--- Phase4_LoadStore.inc - Phase 4 Visit Methods ------------*- C++ -*-===//
+//===--- Phase3_4_LoadStore.inc - Phase 3-4 Visit Methods ----------*- C++ -*-===//
 //
-// Phase 4: Load/Store Basic Instructions (4 instructions)
+// Phase 3-4: Load/Store Basic Instructions (4 instructions)
 //   - Load, LoadBorrow, Store, StoreBorrow
 //
 // Related: swift#42962 (SR-340)

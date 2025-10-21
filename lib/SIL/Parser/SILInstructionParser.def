@@ -125,4 +125,23 @@ PARSE_SIL_VISITOR_ENTRY(CondBranchInst)
 PARSE_SIL_VISITOR_ENTRY(UnreachableInst)
 PARSE_SIL_VISITOR_ENTRY(CondFailInst)
 
+// Phase 3-9: Additional Cast/Conversion instructions (18 instructions)
+PARSE_SIL_VISITOR_ENTRY(UncheckedAddrCastInst)
+PARSE_SIL_VISITOR_ENTRY(UncheckedValueCastInst)
+PARSE_SIL_VISITOR_ENTRY(AddressToPointerInst)
+PARSE_SIL_VISITOR_ENTRY(RawPointerToRefInst)
+#define LOADABLE_REF_STORAGE(Name, ...)                                        \
+  PARSE_SIL_VISITOR_ENTRY(RefTo##Name##Inst)                                   \
+  PARSE_SIL_VISITOR_ENTRY(Name##ToRefInst)
+#include "swift/AST/ReferenceStorage.def"
+#undef LOADABLE_REF_STORAGE
+PARSE_SIL_VISITOR_ENTRY(ThinToThickFunctionInst)
+PARSE_SIL_VISITOR_ENTRY(ThickToObjCMetatypeInst)
+PARSE_SIL_VISITOR_ENTRY(ObjCToThickMetatypeInst)
+PARSE_SIL_VISITOR_ENTRY(ConvertEscapeToNoEscapeInst)
+PARSE_SIL_VISITOR_ENTRY(ObjCExistentialMetatypeToObjectInst)
+PARSE_SIL_VISITOR_ENTRY(ObjCMetatypeToObjectInst)
+PARSE_SIL_VISITOR_ENTRY(PointerToAddressInst)
+PARSE_SIL_VISITOR_ENTRY(RefToBridgeObjectInst)
+
 #undef PARSE_SIL_VISITOR_ENTRY

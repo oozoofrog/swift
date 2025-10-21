@@ -3884,165 +3884,38 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
   case SILInstructionKind::RefToRawPointerInst:
     llvm_unreachable("RefToRawPointerInst should be handled by visitor");
 
-  // Conversion instructions (remaining after Phase 7 migration).
+  // Conversion instructions (handled by visitor after Phase 7 migration).
   case SILInstructionKind::UncheckedAddrCastInst:
+    llvm_unreachable("UncheckedAddrCastInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::UncheckedValueCastInst:
+    llvm_unreachable("UncheckedValueCastInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::AddressToPointerInst:
+    llvm_unreachable("AddressToPointerInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::RawPointerToRefInst:
+    llvm_unreachable("RawPointerToRefInst is handled by SILInstructionParserVisitor");
 #define LOADABLE_REF_STORAGE(Name, ...)                                        \
   case SILInstructionKind::RefTo##Name##Inst:                                  \
-  case SILInstructionKind::Name##ToRefInst:
-#include "swift/AST/ReferenceStorage.def"
-  case SILInstructionKind::ThinToThickFunctionInst:
-  case SILInstructionKind::ThickToObjCMetatypeInst:
-  case SILInstructionKind::ObjCToThickMetatypeInst:
-  case SILInstructionKind::ConvertEscapeToNoEscapeInst:
-  case SILInstructionKind::ObjCExistentialMetatypeToObjectInst:
-  case SILInstructionKind::ObjCMetatypeToObjectInst: {
-    SILType Ty;
-    Identifier ToToken;
-    SourceLoc ToLoc;
-    bool not_guaranteed = false;
-    bool needsStackProtection = false;
-    if (Opcode == SILInstructionKind::ConvertEscapeToNoEscapeInst) {
-      StringRef attrName;
-      if (parseSILOptional(attrName, *this)) {
-        if (attrName == "not_guaranteed")
-          not_guaranteed = true;
-        else
-          return true;
-      }
-    } if (Opcode == SILInstructionKind::AddressToPointerInst) {
-      if (parseSILOptional(needsStackProtection, *this, "stack_protection"))
-        return true;
-    }
-
-    if (parseTypedValueRef(Val, B) ||
-        parseSILIdentifier(ToToken, ToLoc, diag::expected_tok_in_sil_instr,
-                           "to"))
-      return true;
-
-    if (ToToken.str() != "to") {
-      P.diagnose(ToLoc, diag::expected_tok_in_sil_instr, "to");
-      return true;
-    }
-    if (parseSILType(Ty))
-      return true;
-
-    ValueOwnershipKind forwardingOwnership = Val->getOwnershipKind();
-    if (ForwardingInstruction::isa(Opcode)) {
-      if (parseForwardingOwnershipKind(forwardingOwnership))
-        return true;
-    }
-
-    if (parseSILDebugLocation(InstLoc, B)) {
-      return true;
-    }
-
-    switch (Opcode) {
-    default:
-      llvm_unreachable("Out of sync with parent switch");
-    case SILInstructionKind::UncheckedAddrCastInst:
-      ResultVal = B.createUncheckedAddrCast(InstLoc, Val, Ty);
-      break;
-    case SILInstructionKind::UncheckedValueCastInst:
-      ResultVal =
-          B.createUncheckedValueCast(InstLoc, Val, Ty, forwardingOwnership);
-      break;
-    case SILInstructionKind::ConvertEscapeToNoEscapeInst:
-      ResultVal =
-          B.createConvertEscapeToNoEscape(InstLoc, Val, Ty, !not_guaranteed);
-      break;
-    case SILInstructionKind::AddressToPointerInst:
-      ResultVal = B.createAddressToPointer(InstLoc, Val, Ty, needsStackProtection);
-      break;
-    case SILInstructionKind::RawPointerToRefInst:
-      ResultVal = B.createRawPointerToRef(InstLoc, Val, Ty);
-      break;
-#define LOADABLE_REF_STORAGE(Name, ...)                                        \
-  case SILInstructionKind::RefTo##Name##Inst:                                  \
-    ResultVal = B.createRefTo##Name(InstLoc, Val, Ty);                         \
-    break;                                                                     \
+    llvm_unreachable("RefTo" #Name "Inst is handled by SILInstructionParserVisitor"); \
   case SILInstructionKind::Name##ToRefInst:                                    \
-    ResultVal = B.create##Name##ToRef(InstLoc, Val, Ty);                       \
-    break;
+    llvm_unreachable(#Name "ToRefInst is handled by SILInstructionParserVisitor");
 #include "swift/AST/ReferenceStorage.def"
-    case SILInstructionKind::ThinToThickFunctionInst:
-      ResultVal =
-          B.createThinToThickFunction(InstLoc, Val, Ty, forwardingOwnership);
-      break;
-    case SILInstructionKind::ThickToObjCMetatypeInst:
-      ResultVal = B.createThickToObjCMetatype(InstLoc, Val, Ty);
-      break;
-    case SILInstructionKind::ObjCToThickMetatypeInst:
-      ResultVal = B.createObjCToThickMetatype(InstLoc, Val, Ty);
-      break;
-    case SILInstructionKind::ObjCMetatypeToObjectInst:
-      ResultVal = B.createObjCMetatypeToObject(InstLoc, Val, Ty);
-      break;
-    case SILInstructionKind::ObjCExistentialMetatypeToObjectInst:
-      ResultVal = B.createObjCExistentialMetatypeToObject(InstLoc, Val, Ty);
-      break;
-    }
-    break;
-  }
-  case SILInstructionKind::PointerToAddressInst: {
-    SILType Ty;
-    Identifier ToToken;
-    SourceLoc ToLoc;
-    StringRef attr;
-    if (parseTypedValueRef(Val, B) ||
-        parseSILIdentifier(ToToken, ToLoc, diag::expected_tok_in_sil_instr,
-                           "to"))
-      return true;
-
-    bool isStrict = false;
-    bool isInvariant = false;
-    llvm::MaybeAlign alignment;
-    SILOptionalAttrValue parsedValue;
-    SourceLoc parsedValueLoc;
-    while (parseSILOptional(attr, ToLoc, parsedValue, parsedValueLoc, *this)) {
-      if (attr.empty())
-        return true;
-
-      if (attr == "strict")
-        isStrict = true;
-
-      if (attr == "invariant")
-        isInvariant = true;
-
-      if (attr == "align")
-        alignment = llvm::Align(std::get<uint64_t>(*parsedValue));
-    }
-
-    if (parseSILType(Ty) || parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    if (ToToken.str() != "to") {
-      P.diagnose(ToLoc, diag::expected_tok_in_sil_instr, "to");
-      return true;
-    }
-
-    ResultVal = B.createPointerToAddress(InstLoc, Val, Ty, isStrict,
-                                         isInvariant, alignment);
-    break;
-  }
-  case SILInstructionKind::RefToBridgeObjectInst: {
-    SILValue BitsVal;
-    if (parseTypedValueRef(Val, B) ||
-        P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-        parseTypedValueRef(BitsVal, B))
-      return true;
-
-    ValueOwnershipKind forwardingOwnership = Val->getOwnershipKind();
-    if (parseForwardingOwnershipKind(forwardingOwnership)
-        || parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    ResultVal =
-        B.createRefToBridgeObject(InstLoc, Val, BitsVal, forwardingOwnership);
-    break;
-  }
+#undef LOADABLE_REF_STORAGE
+  case SILInstructionKind::ThinToThickFunctionInst:
+    llvm_unreachable("ThinToThickFunctionInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::ThickToObjCMetatypeInst:
+    llvm_unreachable("ThickToObjCMetatypeInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::ObjCToThickMetatypeInst:
+    llvm_unreachable("ObjCToThickMetatypeInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::ConvertEscapeToNoEscapeInst:
+    llvm_unreachable("ConvertEscapeToNoEscapeInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::ObjCExistentialMetatypeToObjectInst:
+    llvm_unreachable("ObjCExistentialMetatypeToObjectInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::ObjCMetatypeToObjectInst:
+    llvm_unreachable("ObjCMetatypeToObjectInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::PointerToAddressInst:
+    llvm_unreachable("PointerToAddressInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::RefToBridgeObjectInst:
+    llvm_unreachable("RefToBridgeObjectInst is handled by SILInstructionParserVisitor");
 
   case SILInstructionKind::CheckedCastAddrBranchInst: {
     CheckedCastInstOptions options = parseCheckedCastInstOptions(nullptr);

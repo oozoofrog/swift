@@ -4929,496 +4929,62 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
       ResultVal = B.createSwitchValue(InstLoc, Val, DefaultBB, CaseBBs);
       break;
     }
-    case SILInstructionKind::DeinitExistentialAddrInst: {
-      if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-        return true;
-      ResultVal = B.createDeinitExistentialAddr(InstLoc, Val);
-      break;
-    }
-    case SILInstructionKind::DeinitExistentialValueInst: {
-      if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-        return true;
-      ResultVal = B.createDeinitExistentialValue(InstLoc, Val);
-      break;
-    }
-    case SILInstructionKind::InitExistentialAddrInst: {
-      CanType Ty;
-      SourceLoc TyLoc;
-      if (parseTypedValueRef(Val, B) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          P.parseToken(tok::sil_dollar, diag::expected_tok_in_sil_instr, "$") ||
-          parseASTType(Ty, TyLoc) || parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      // Lower the type at the abstraction level of the existential.
-      auto archetype =
-          ExistentialArchetypeType::get(Val->getType().getASTType())
-              ->getCanonicalType();
-
-      auto &F = B.getFunction();
-      SILType LoweredTy =
-          F.getLoweredType(Lowering::AbstractionPattern(archetype), Ty)
-              .getAddressType();
-
-      // Collect conformances for the type.
-      ArrayRef<ProtocolConformanceRef> conformances =
-          ::collectExistentialConformances(P, Ty, TyLoc,
-                                           Val->getType().getASTType());
-
-      ResultVal = B.createInitExistentialAddr(InstLoc, Val, Ty, LoweredTy,
-                                              conformances);
-      break;
-    }
-    case SILInstructionKind::InitExistentialValueInst: {
-      CanType FormalConcreteTy;
-      SILType ExistentialTy;
-      SourceLoc TyLoc;
-
-      if (parseTypedValueRef(Val, B) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          P.parseToken(tok::sil_dollar, diag::expected_tok_in_sil_instr, "$") ||
-          parseASTType(FormalConcreteTy, TyLoc) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseSILType(ExistentialTy) || parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      ArrayRef<ProtocolConformanceRef> conformances =
-          ::collectExistentialConformances(P, FormalConcreteTy, TyLoc,
-                                           ExistentialTy.getASTType());
-
-      ResultVal = B.createInitExistentialValue(
-          InstLoc, ExistentialTy, FormalConcreteTy, Val, conformances);
-      break;
-    }
+    case SILInstructionKind::DeinitExistentialAddrInst:
+      llvm_unreachable(
+          "DeinitExistentialAddrInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::DeinitExistentialValueInst:
+      llvm_unreachable(
+          "DeinitExistentialValueInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::InitExistentialAddrInst:
+      llvm_unreachable(
+          "InitExistentialAddrInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::InitExistentialValueInst:
+      llvm_unreachable(
+          "InitExistentialValueInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::AllocExistentialBoxInst:
-      llvm_unreachable("AllocExistentialBoxInst is handled by SILInstructionParserVisitor");
-    case SILInstructionKind::InitExistentialRefInst: {
-      CanType FormalConcreteTy;
-      SILType ExistentialTy;
-      SourceLoc TyLoc;
-
-      if (parseTypedValueRef(Val, B) ||
-          P.parseToken(tok::colon, diag::expected_tok_in_sil_instr, ":") ||
-          P.parseToken(tok::sil_dollar, diag::expected_tok_in_sil_instr, "$") ||
-          parseASTType(FormalConcreteTy, TyLoc) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseSILType(ExistentialTy))
-        return true;
-
-      ValueOwnershipKind forwardingOwnership = Val->getOwnershipKind();
-      if (parseForwardingOwnershipKind(forwardingOwnership)
-          || parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      ArrayRef<ProtocolConformanceRef> conformances =
-          ::collectExistentialConformances(P, FormalConcreteTy, TyLoc,
-                                           ExistentialTy.getASTType());
-
-      // FIXME: Conformances in InitExistentialRefInst is currently not included
-      // in SIL.rst.
-      ResultVal =
-          B.createInitExistentialRef(InstLoc, ExistentialTy, FormalConcreteTy,
-                                     Val, conformances, forwardingOwnership);
-      break;
-    }
-    case SILInstructionKind::InitExistentialMetatypeInst: {
-      SourceLoc TyLoc;
-      SILType ExistentialTy;
-      if (parseTypedValueRef(Val, B) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseSILType(ExistentialTy, TyLoc) ||
-          parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      auto baseExType = ExistentialTy.getASTType();
-      auto formalConcreteType = Val->getType().getASTType();
-      while (auto instExType = dyn_cast<ExistentialMetatypeType>(baseExType)) {
-        baseExType = instExType.getInstanceType();
-        formalConcreteType =
-            cast<MetatypeType>(formalConcreteType).getInstanceType();
-      }
-
-      ArrayRef<ProtocolConformanceRef> conformances =
-          ::collectExistentialConformances(P, formalConcreteType, TyLoc,
-                                           baseExType);
-
-      ResultVal = B.createInitExistentialMetatype(InstLoc, Val, ExistentialTy,
-                                                  conformances);
-      break;
-    }
-    case SILInstructionKind::DynamicMethodBranchInst: {
-      SILDeclRef Member;
-      Identifier BBName, BBName2;
-      SourceLoc NameLoc, NameLoc2;
-      if (parseTypedValueRef(Val, B) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseSILDeclRef(Member) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseSILIdentifier(BBName, NameLoc, diag::expected_sil_block_name) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseSILIdentifier(BBName2, NameLoc2,
-                             diag::expected_sil_block_name) ||
-          parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      ResultVal = B.createDynamicMethodBranch(
-          InstLoc, Val, Member, getBBForReference(BBName, NameLoc),
-          getBBForReference(BBName2, NameLoc2));
-      break;
-    }
-    case SILInstructionKind::ProjectBlockStorageInst: {
-      if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      ResultVal = B.createProjectBlockStorage(InstLoc, Val);
-      break;
-    }
-    case SILInstructionKind::InitBlockStorageHeaderInst: {
-      Identifier invoke, type;
-      SourceLoc invokeLoc, typeLoc;
-
-      UnresolvedValueName invokeName;
-      SILType invokeTy;
-      GenericSignature invokeGenericSig;
-      GenericParamList *invokeGenericParams = nullptr;
-
-      SILType blockType;
-      SmallVector<ParsedSubstitution, 4> parsedSubs;
-
-      if (parseTypedValueRef(Val, B) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseSILIdentifier(invoke, invokeLoc, diag::expected_tok_in_sil_instr,
-                             "invoke") ||
-          parseValueName(invokeName) || parseSubstitutions(parsedSubs) ||
-          P.parseToken(tok::colon, diag::expected_tok_in_sil_instr, ":") ||
-          parseSILType(invokeTy, invokeGenericSig, invokeGenericParams) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseSILIdentifier(type, typeLoc, diag::expected_tok_in_sil_instr,
-                             "type") ||
-          parseSILType(blockType) || parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      if (invoke.str() != "invoke") {
-        P.diagnose(invokeLoc, diag::expected_tok_in_sil_instr, "invoke");
-        return true;
-      }
-      if (type.str() != "type") {
-        P.diagnose(invokeLoc, diag::expected_tok_in_sil_instr, "type");
-        return true;
-      }
-
-      auto invokeVal = getLocalValue(invokeName, invokeTy, InstLoc, B);
-
-      SubstitutionMap subMap;
-      if (!parsedSubs.empty()) {
-        if (!invokeGenericSig) {
-          P.diagnose(typeLoc, diag::sil_substitutions_on_non_polymorphic_type);
-          return true;
-        }
-
-        subMap = getApplySubstitutionsFromParsed(*this, invokeGenericSig,
-                                                 parsedSubs);
-        if (!subMap)
-          return true;
-      }
-
-      ResultVal = B.createInitBlockStorageHeader(InstLoc, Val, invokeVal,
-                                                 blockType, subMap);
-      break;
-    }
-    case SILInstructionKind::DifferentiableFunctionInst: {
-      // e.g. differentiable_function [parameters 0 1 2] [results 0] %0 : $T
-      //
-      // e.g. differentiable_function [parameters 0 1 2] [results 0] %0 : $T
-      //          with_derivative {%1 : $T, %2 : $T}
-      //                           ^~ jvp   ^~ vjp
-      // Parse `[parameters <integer_literal>...]`.
-      SmallVector<unsigned, 8> rawParameterIndices;
-      if (parseIndexList(P, "parameters", rawParameterIndices,
-                         diag::sil_autodiff_expected_parameter_index))
-        return true;
-      SmallVector<unsigned, 2> rawResultIndices;
-      if (parseIndexList(P, "results", rawResultIndices,
-                         diag::sil_autodiff_expected_result_index))
-        return true;
-      // Parse the original function value.
-      SILValue original;
-      SourceLoc originalOperandLoc;
-      if (parseTypedValueRef(original, originalOperandLoc, B))
-        return true;
-      auto fnType = original->getType().getAs<SILFunctionType>();
-      if (!fnType) {
-        P.diagnose(originalOperandLoc,
-                   diag::sil_inst_autodiff_expected_function_type_operand);
-        return true;
-      }
-      std::optional<std::pair<SILValue, SILValue>> derivativeFunctions =
-          std::nullopt;
-      // Parse an optional operand list
-      //   `with_derivative { <operand> , <operand> }`.
-      if (P.Tok.is(tok::identifier) && P.Tok.getText() == "with_derivative") {
-        P.consumeToken(tok::identifier);
-        // Parse derivative function values as an operand list.
-        // FIXME(rxwei): Change this to *not* require a type signature once
-        // we can infer derivative function types.
-        derivativeFunctions = std::make_pair(SILValue(), SILValue());
-        if (P.parseToken(
-                tok::l_brace,
-                diag::sil_inst_autodiff_operand_list_expected_lbrace) ||
-            parseTypedValueRef(derivativeFunctions->first, B) ||
-            P.parseToken(tok::comma,
-                         diag::sil_inst_autodiff_operand_list_expected_comma) ||
-            parseTypedValueRef(derivativeFunctions->second, B) ||
-            P.parseToken(tok::r_brace,
-                         diag::sil_inst_autodiff_operand_list_expected_rbrace))
-          return true;
-      }
-
-      ValueOwnershipKind forwardingOwnership(OwnershipKind::None);
-      if (parseForwardingOwnershipKind(forwardingOwnership)
-          || parseSILDebugLocation(InstLoc, B))
-        return true;
-      auto *parameterIndices = IndexSubset::get(
-          P.Context, fnType->getNumParameters(), rawParameterIndices);
-      auto *resultIndices = IndexSubset::get(
-          P.Context,
-          fnType->getNumResults() + fnType->getNumIndirectMutatingParameters(),
-          rawResultIndices);
-      if (forwardingOwnership != OwnershipKind::None) {
-        ResultVal = B.createDifferentiableFunction(
-            InstLoc, parameterIndices, resultIndices, original,
-            derivativeFunctions, forwardingOwnership);
-      } else {
-        ResultVal = B.createDifferentiableFunction(InstLoc, parameterIndices,
-                                                   resultIndices, original,
-                                                   derivativeFunctions);
-      }
-      break;
-    }
-    case SILInstructionKind::LinearFunctionInst: {
-      // e.g. linear_function [parameters 0 1 2] %0 : $T
-      // e.g. linear_function [parameters 0 1 2] %0 : $T with_transpose %1 : $T
-      // Parse `[parameters <integer_literal>...]`.
-      SmallVector<unsigned, 8> rawParameterIndices;
-      if (parseIndexList(P, "parameters", rawParameterIndices,
-                         diag::sil_autodiff_expected_parameter_index))
-        return true;
-      // Parse the original function value.
-      SILValue original;
-      SourceLoc originalOperandLoc;
-      if (parseTypedValueRef(original, originalOperandLoc, B))
-        return true;
-      auto fnType = original->getType().getAs<SILFunctionType>();
-      if (!fnType) {
-        P.diagnose(originalOperandLoc,
-                   diag::sil_inst_autodiff_expected_function_type_operand);
-        return true;
-      }
-      // Parse an optional transpose function.
-      std::optional<SILValue> transpose = std::nullopt;
-      if (P.Tok.is(tok::identifier) && P.Tok.getText() == "with_transpose") {
-        P.consumeToken(tok::identifier);
-        transpose = SILValue();
-        if (parseTypedValueRef(*transpose, B))
-          return true;
-      }
-
-      ValueOwnershipKind forwardingOwnership(OwnershipKind::None);
-      if (parseForwardingOwnershipKind(forwardingOwnership)
-          || parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      auto *parameterIndicesSubset = IndexSubset::get(
-          P.Context, fnType->getNumParameters(), rawParameterIndices);
-
-      if (forwardingOwnership != OwnershipKind::None) {
-        ResultVal =
-            B.createLinearFunction(InstLoc, parameterIndicesSubset, original,
-                                   forwardingOwnership, transpose);
-      } else {
-        ResultVal = B.createLinearFunction(InstLoc, parameterIndicesSubset,
-                                           original, transpose);
-      }
-      break;
-    }
-    case SILInstructionKind::DifferentiableFunctionExtractInst: {
-      // Parse the rest of the instruction: an extractee, a differentiable
-      // function operand, an optional explicit extractee type, and a debug
-      // location.
-      NormalDifferentiableFunctionTypeComponent extractee;
-      StringRef extracteeNames[3] = {"original", "jvp", "vjp"};
-      SILValue functionOperand;
-      SourceLoc lastLoc;
-      if (P.parseToken(
-              tok::l_square,
-              diag::sil_inst_autodiff_expected_differentiable_extractee_kind) ||
-          parseSILIdentifierSwitch(
-              extractee, extracteeNames,
-              diag::sil_inst_autodiff_expected_differentiable_extractee_kind) ||
-          P.parseToken(tok::r_square, diag::sil_autodiff_expected_rsquare,
-                       "extractee kind"))
-        return true;
-      if (parseTypedValueRef(functionOperand, B))
-        return true;
-      // Parse an optional explicit extractee type.
-      std::optional<SILType> extracteeType = std::nullopt;
-      if (P.consumeIf(tok::kw_as)) {
-        extracteeType = SILType();
-        if (parseSILType(*extracteeType))
-          return true;
-      }
-
-      ValueOwnershipKind forwardingOwnership =
-          functionOperand->getOwnershipKind();
-      if (parseForwardingOwnershipKind(forwardingOwnership)
-          || parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      ResultVal = B.createDifferentiableFunctionExtract(
-          InstLoc, extractee, functionOperand, forwardingOwnership,
-          extracteeType);
-      break;
-    }
-    case SILInstructionKind::LinearFunctionExtractInst: {
-      // Parse the rest of the instruction: an extractee, a linear function
-      // operand, and a debug location.
-      LinearDifferentiableFunctionTypeComponent extractee;
-      StringRef extracteeNames[2] = {"original", "transpose"};
-      SILValue functionOperand;
-      SourceLoc lastLoc;
-      if (P.parseToken(tok::l_square,
-              diag::sil_inst_autodiff_expected_linear_extractee_kind) ||
-          parseSILIdentifierSwitch(extractee, extracteeNames,
-              diag::sil_inst_autodiff_expected_linear_extractee_kind) ||
-          P.parseToken(tok::r_square, diag::sil_autodiff_expected_rsquare,
-                       "extractee kind"))
-        return true;
-      if (parseTypedValueRef(functionOperand, B))
-        return true;
-
-      ValueOwnershipKind forwardingOwnership =
-          functionOperand->getOwnershipKind();
-      if (parseForwardingOwnershipKind(forwardingOwnership)
-          || parseSILDebugLocation(InstLoc, B))
-        return true;
-      ResultVal = B.createLinearFunctionExtract(
-          InstLoc, extractee, functionOperand, forwardingOwnership);
-      break;
-    }
-    case SILInstructionKind::DifferentiabilityWitnessFunctionInst: {
-      // e.g. differentiability_witness_function
-      //      [jvp] [parameters 0 1] [results 0] <T where T: Differentiable>
-      //      @foo : <T> $(T) -> T
-      DifferentiabilityWitnessFunctionKind witnessKind;
-      StringRef witnessKindNames[3] = {"jvp", "vjp", "transpose"};
-      if (P.parseToken(
-              tok::l_square,
-              diag::
-                  sil_inst_autodiff_expected_differentiability_witness_kind) ||
-          parseSILIdentifierSwitch(
-              witnessKind, witnessKindNames,
-              diag::
-                  sil_inst_autodiff_expected_differentiability_witness_kind) ||
-          P.parseToken(tok::r_square, diag::sil_autodiff_expected_rsquare,
-                       "differentiability witness function kind"))
-        return true;
-      SourceLoc keyStartLoc = P.Tok.getLoc();
-      DifferentiabilityKind diffKind;
-      AutoDiffConfig config;
-      SILFunction *originalFn = nullptr;
-      if (parseSILDifferentiabilityWitnessConfigAndFunction(
-              P, *this, InstLoc, diffKind, config, originalFn))
-        return true;
-      auto *witness = SILMod.lookUpDifferentiabilityWitness(
-          {originalFn->getName(), diffKind, config});
-      if (!witness) {
-        P.diagnose(keyStartLoc, diag::sil_diff_witness_undefined);
-        return true;
-      }
-      // Parse an optional explicit function type.
-      std::optional<SILType> functionType = std::nullopt;
-      if (P.consumeIf(tok::kw_as)) {
-        functionType = SILType();
-        if (parseSILType(*functionType))
-          return true;
-      }
-      ResultVal = B.createDifferentiabilityWitnessFunction(
-          InstLoc, witnessKind, witness, functionType);
-      break;
-    }
-    case SILInstructionKind::AwaitAsyncContinuationInst: {
-      // 'await_async_continuation' operand, 'resume' bb, 'error' bb
-      Identifier ResumeBBName, ErrorBBName{};
-      SourceLoc ResumeNameLoc, ErrorNameLoc{};
-      if (parseTypedValueRef(Val, B)
-          || P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",")
-          || P.parseSpecificIdentifier("resume", diag::expected_tok_in_sil_instr, "resume")
-          || parseSILIdentifier(ResumeBBName, ResumeNameLoc, diag::expected_sil_block_name)) {
-        return true;
-      }
-      
-      if (P.consumeIf(tok::comma)) {
-          if (P.parseSpecificIdentifier("error", diag::expected_tok_in_sil_instr, "error")
-              || parseSILIdentifier(ErrorBBName, ErrorNameLoc, diag::expected_sil_block_name)
-              || parseSILDebugLocation(InstLoc, B)) {
-            return true;
-          }
-      }
-      
-      SILBasicBlock *resumeBB, *errorBB = nullptr;
-      resumeBB = getBBForReference(ResumeBBName, ResumeNameLoc);
-      if (!ErrorBBName.empty()) {
-        errorBB = getBBForReference(ErrorBBName, ErrorNameLoc);
-      }
-      ResultVal = B.createAwaitAsyncContinuation(InstLoc, Val, resumeBB, errorBB);
-      break;
-    }
+      llvm_unreachable(
+          "AllocExistentialBoxInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::InitExistentialRefInst:
+      llvm_unreachable(
+          "InitExistentialRefInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::InitExistentialMetatypeInst:
+      llvm_unreachable(
+          "InitExistentialMetatypeInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::DynamicMethodBranchInst:
+      llvm_unreachable(
+          "DynamicMethodBranchInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::ProjectBlockStorageInst:
+      llvm_unreachable(
+          "ProjectBlockStorageInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::InitBlockStorageHeaderInst:
+      llvm_unreachable(
+          "InitBlockStorageHeaderInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::DifferentiableFunctionInst:
+      llvm_unreachable(
+          "DifferentiableFunctionInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::LinearFunctionInst:
+      llvm_unreachable(
+          "LinearFunctionInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::DifferentiableFunctionExtractInst:
+      llvm_unreachable(
+          "DifferentiableFunctionExtractInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::LinearFunctionExtractInst:
+      llvm_unreachable(
+          "LinearFunctionExtractInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::DifferentiabilityWitnessFunctionInst:
+      llvm_unreachable(
+          "DifferentiabilityWitnessFunctionInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::AwaitAsyncContinuationInst:
+      llvm_unreachable(
+          "AwaitAsyncContinuationInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::GetAsyncContinuationInst:
-    case SILInstructionKind::GetAsyncContinuationAddrInst: {
-      // 'get_async_continuation'      '[throws]'? type
-      // 'get_async_continuation_addr' '[throws]'? type ',' operand
-      bool throws = false;
-      if (P.consumeIf(tok::l_square)) {
-        if (P.parseToken(tok::kw_throws, diag::expected_tok_in_sil_instr, "throws")
-            || P.parseToken(tok::r_square, diag::expected_tok_in_sil_instr, "]"))
-          return true;
-        
-        throws = true;
-      }
-      
-      CanType resumeTy;
-      if (parseASTType(resumeTy)) {
-        return true;
-      }
-      
-      SILValue resumeBuffer;
-      if (Opcode == SILInstructionKind::GetAsyncContinuationAddrInst) {
-        if (P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",")
-            || parseTypedValueRef(resumeBuffer, B)) {
-          return true;
-        }
-      }
-      
-      if (parseSILDebugLocation(InstLoc, B))
-        return true;
-      
-      if (Opcode == SILInstructionKind::GetAsyncContinuationAddrInst) {
-        ResultVal = B.createGetAsyncContinuationAddr(InstLoc, resumeBuffer,
-                                                     resumeTy, throws);
-      } else {
-        ResultVal = B.createGetAsyncContinuation(InstLoc, resumeTy, throws);
-      }
-      break;
-    }
-    case SILInstructionKind::HasSymbolInst: {
-      // 'has_symbol' sil-decl-ref
-      SILDeclRef declRef;
-      if (parseSILDeclRef(declRef))
-        return true;
-
-      ResultVal = B.createHasSymbol(InstLoc, declRef.getDecl());
-      break;
-    }
+      llvm_unreachable(
+          "GetAsyncContinuationInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::GetAsyncContinuationAddrInst:
+      llvm_unreachable(
+          "GetAsyncContinuationAddrInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::HasSymbolInst:
+      llvm_unreachable("HasSymbolInst is handled by SILInstructionParserVisitor");
 
     }
 

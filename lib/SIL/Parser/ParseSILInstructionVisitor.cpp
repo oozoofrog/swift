@@ -23,6 +23,7 @@
 #include "swift/SIL/SILDebugVariable.h"
 #include "swift/SIL/SILLocation.h"
 #include "swift/SIL/ValueUtils.h"
+#include "swift/Subsystems.h"
 #include "swift/Parse/Lexer.h"
 
 using namespace swift;
@@ -105,3 +106,4 @@ SILInstructionParserVisitor::dispatch(SILInstructionKind Opcode) {
 #include "ParseSILInstructionVisitorImpl/Phase3_7_Conversion.inc"
 #include "ParseSILInstructionVisitorImpl/Phase3_8_ControlFlow.inc"
 #include "ParseSILInstructionVisitorImpl/Phase3_9_Casts.inc"
+#include "ParseSILInstructionVisitorImpl/Phase3_10_Existential.inc"

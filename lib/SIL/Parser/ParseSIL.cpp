@@ -4535,218 +4535,36 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
       llvm_unreachable("RebindMemoryInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::StructInst:
       llvm_unreachable("StructInst is handled by SILInstructionParserVisitor");
-    case SILInstructionKind::ObjectInst: {
-      SILType Ty;
-      if (parseSILType(Ty) ||
-          P.parseToken(tok::l_paren, diag::expected_tok_in_sil_instr, "("))
-        return true;
-
-      // Parse a list of SILValue.
-      bool OpsAreTailElems = false;
-      unsigned NumBaseElems = 0;
-      if (P.Tok.isNot(tok::r_paren)) {
-        do {
-          if (parseSILOptional(OpsAreTailElems, *this, "tail_elems"))
-            return true;
-          if (parseTypedValueRef(Val, B))
-            return true;
-          OpList.push_back(Val);
-          if (!OpsAreTailElems)
-            NumBaseElems = OpList.size();
-        } while (P.consumeIf(tok::comma));
-      }
-      if (P.parseToken(tok::r_paren, diag::expected_tok_in_sil_instr, ")"))
-        return true;
-
-      if (parseSILDebugLocation(InstLoc, B))
-        return true;
-      ResultVal = B.createObject(InstLoc, Ty, OpList, NumBaseElems);
-      break;
-    }
-    case SILInstructionKind::VectorInst: {
-      if (P.parseToken(tok::l_paren, diag::expected_tok_in_sil_instr, "("))
-        return true;
-
-      // Parse a list of SILValue.
-      do {
-        if (parseTypedValueRef(Val, B))
-          return true;
-        OpList.push_back(Val);
-      } while (P.consumeIf(tok::comma));
-
-      if (P.parseToken(tok::r_paren, diag::expected_tok_in_sil_instr, ")"))
-        return true;
-      ResultVal = B.createVector(InstLoc, OpList);
-      break;
-    }
+    case SILInstructionKind::ObjectInst:
+      llvm_unreachable("ObjectInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::VectorInst:
+      llvm_unreachable("VectorInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::StructElementAddrInst:
       llvm_unreachable("StructElementAddrInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::StructExtractInst:
       llvm_unreachable("StructExtractInst is handled by SILInstructionParserVisitor");
-    case SILInstructionKind::RefElementAddrInst: {
-      ValueDecl *FieldV;
-      SourceLoc NameLoc;
-      bool IsImmutable = false;
-      if (parseSILOptional(IsImmutable, *this, "immutable") ||
-          parseTypedValueRef(Val, B) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseSILDottedPath(FieldV) || parseSILDebugLocation(InstLoc, B))
-        return true;
-      if (!FieldV || !isa<VarDecl>(FieldV)) {
-        P.diagnose(NameLoc, diag::sil_ref_inst_wrong_field);
-        return true;
-      }
-      VarDecl *Field = cast<VarDecl>(FieldV);
-      auto ResultTy = Val->getType().getFieldType(Field, SILMod,
-                                                  B.getTypeExpansionContext());
-      ResultVal = B.createRefElementAddr(InstLoc, Val, Field, ResultTy,
-                                         IsImmutable);
-      break;
-    }
-    case SILInstructionKind::RefTailAddrInst: {
-      SourceLoc NameLoc;
-      SILType ResultObjTy;
-      bool IsImmutable = false;
-      if (parseSILOptional(IsImmutable, *this, "immutable") ||
-          parseTypedValueRef(Val, B) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseSILType(ResultObjTy) || parseSILDebugLocation(InstLoc, B))
-        return true;
-      SILType ResultTy = ResultObjTy.getAddressType();
-      ResultVal = B.createRefTailAddr(InstLoc, Val, ResultTy, IsImmutable);
-      break;
-    }
-    case SILInstructionKind::IndexAddrInst: {
-      SILValue IndexVal;
-      bool needsStackProtection = false;
-      if (parseSILOptional(needsStackProtection, *this, "stack_protection") ||
-          parseTypedValueRef(Val, B) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseTypedValueRef(IndexVal, B) || parseSILDebugLocation(InstLoc, B))
-        return true;
-      ResultVal = B.createIndexAddr(InstLoc, Val, IndexVal, needsStackProtection);
-      break;
-    }
-    case SILInstructionKind::VectorBaseAddrInst: {
-      if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-        return true;
-      ResultVal = B.createVectorBaseAddr(InstLoc, Val);
-      break;
-    }
-    case SILInstructionKind::TailAddrInst: {
-      SILValue IndexVal;
-      SILType ResultObjTy;
-      if (parseTypedValueRef(Val, B) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseTypedValueRef(IndexVal, B) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseSILType(ResultObjTy) || parseSILDebugLocation(InstLoc, B))
-        return true;
-      SILType ResultTy = ResultObjTy.getAddressType();
-      ResultVal = B.createTailAddr(InstLoc, Val, IndexVal, ResultTy);
-      break;
-    }
-    case SILInstructionKind::IndexRawPointerInst: {
-      SILValue IndexVal;
-      if (parseTypedValueRef(Val, B) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseTypedValueRef(IndexVal, B) || parseSILDebugLocation(InstLoc, B))
-        return true;
-      ResultVal = B.createIndexRawPointer(InstLoc, Val, IndexVal);
-      break;
-    }
-    case SILInstructionKind::ObjCProtocolInst: {
-      Identifier ProtocolName;
-      SILType Ty;
-      if (P.parseToken(tok::pound, diag::expected_sil_constant) ||
-          parseSILIdentifier(ProtocolName, diag::expected_sil_constant) ||
-          P.parseToken(tok::colon, diag::expected_tok_in_sil_instr, ":") ||
-          parseSILType(Ty) || parseSILDebugLocation(InstLoc, B))
-        return true;
-      // Find the decl for the protocol name.
-      ValueDecl *VD;
-      SmallVector<ValueDecl *, 4> CurModuleResults;
-      // Perform a module level lookup on the first component of the
-      // fully-qualified name.
-      P.SF.getParentModule()->lookupValue(
-          ProtocolName, NLKind::UnqualifiedLookup, CurModuleResults);
-      assert(CurModuleResults.size() == 1);
-      VD = CurModuleResults[0];
-      ResultVal = B.createObjCProtocol(InstLoc, cast<ProtocolDecl>(VD), Ty);
-      break;
-    }
+    case SILInstructionKind::RefElementAddrInst:
+      llvm_unreachable("RefElementAddrInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::RefTailAddrInst:
+      llvm_unreachable("RefTailAddrInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::IndexAddrInst:
+      llvm_unreachable("IndexAddrInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::VectorBaseAddrInst:
+      llvm_unreachable("VectorBaseAddrInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::TailAddrInst:
+      llvm_unreachable("TailAddrInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::IndexRawPointerInst:
+      llvm_unreachable("IndexRawPointerInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::ObjCProtocolInst:
+      llvm_unreachable("ObjCProtocolInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::AllocGlobalInst:
       llvm_unreachable("AllocGlobalInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::GlobalAddrInst:
-    case SILInstructionKind::GlobalValueInst: {
-      Identifier GlobalName;
-      SourceLoc IdLoc;
-      SILType Ty;
-      bool isBare = false;
-      if (P.consumeIf(tok::l_square)) {
-        Identifier Id;
-        parseSILIdentifier(Id, diag::expected_in_attribute_list);
-        StringRef Optional = Id.str();
-        if (Optional == "bare" && Opcode == SILInstructionKind::GlobalValueInst) {
-          isBare = true;
-        } else {
-          return true;
-        }
-        P.parseToken(tok::r_square, diag::expected_in_attribute_list);
-      }
-
-      if (P.parseToken(tok::at_sign, diag::expected_sil_value_name) ||
-          parseSILIdentifier(GlobalName, IdLoc,
-                             diag::expected_sil_value_name) ||
-          P.parseToken(tok::colon, diag::expected_tok_in_sil_instr, ":") ||
-          parseSILType(Ty))
-        return true;
-
-      // Go through list of global variables in the SILModule.
-      SILGlobalVariable *global = SILMod.lookUpGlobalVariable(GlobalName.str());
-      if (!global) {
-        P.diagnose(IdLoc, diag::sil_global_variable_not_found, GlobalName);
-        return true;
-      }
-
-      SILValue dependencyToken;
-      if (Opcode == SILInstructionKind::GlobalAddrInst && P.Tok.isContextualKeyword("depends_on")) {
-        P.consumeToken();
-        if (parseValueRef(dependencyToken, SILType::getSILTokenType(P.Context),
-                          RegularLocation(P.Tok.getLoc()), B)) {
-          return true;
-        }
-      }
-
-      if (parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      SILType expectedType = (Opcode == SILInstructionKind::GlobalAddrInst
-                                  ? global->getLoweredType().getAddressType()
-                                  : global->getLoweredType());
-      if (expectedType != Ty) {
-        P.diagnose(IdLoc, diag::sil_value_use_type_mismatch, GlobalName.str(),
-                   global->getLoweredType().getRawASTType(),
-                   Ty.getRawASTType());
-        return true;
-      }
-
-      if (Opcode == SILInstructionKind::GlobalAddrInst) {
-        ResultVal = B.createGlobalAddr(InstLoc, global, dependencyToken);
-      } else {
-        ResultVal = B.createGlobalValue(InstLoc, global, isBare);
-      }
-      break;
-    }
-    case SILInstructionKind::BaseAddrForOffsetInst: {
-      SILType Ty;
-      if (parseSILType(Ty))
-        return true;
-      if (parseSILDebugLocation(InstLoc, B))
-        return true;
-      ResultVal = B.createBaseAddrForOffset(InstLoc, Ty);
-      break;
-    }
+      llvm_unreachable("GlobalAddrInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::GlobalValueInst:
+      llvm_unreachable("GlobalValueInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::BaseAddrForOffsetInst:
+      llvm_unreachable("BaseAddrForOffsetInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::SelectEnumInst:
       llvm_unreachable("SelectEnumInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::SelectEnumAddrInst:

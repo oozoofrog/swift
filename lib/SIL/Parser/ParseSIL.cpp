@@ -2931,28 +2931,12 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     ResultVal = B.createFunctionRef(InstLoc, Fn);
     break;
   }
-  case SILInstructionKind::DynamicFunctionRefInst: {
-    SILFunction *Fn;
-    if (parseSILFunctionRef(InstLoc, Fn) || parseSILDebugLocation(InstLoc, B))
-      return true;
-    // Set a forward reference's dynamic property for the first time.
-    if (!Fn->isDynamicallyReplaceable()) {
-      if (!Fn->empty()) {
-        P.diagnose(P.Tok, diag::expected_dynamic_func_attr);
-        return true;
-      }
-      Fn->setIsDynamic();
-    }
-    ResultVal = B.createDynamicFunctionRef(InstLoc, Fn);
-    break;
-  }
-  case SILInstructionKind::PreviousDynamicFunctionRefInst: {
-    SILFunction *Fn;
-    if (parseSILFunctionRef(InstLoc, Fn) || parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createPreviousDynamicFunctionRef(InstLoc, Fn);
-    break;
-  }
+  case SILInstructionKind::DynamicFunctionRefInst:
+    llvm_unreachable(
+        "DynamicFunctionRefInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::PreviousDynamicFunctionRefInst:
+    llvm_unreachable("PreviousDynamicFunctionRefInst is handled by "
+                     "SILInstructionParserVisitor");
   case SILInstructionKind::BuiltinInst: {
     if (P.Tok.getKind() != tok::string_literal) {
       P.diagnose(P.Tok, diag::expected_tok_in_sil_instr, "builtin name");
@@ -3125,17 +3109,9 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     ResultVal = B.createPackLength(InstLoc, packType);
     break;
   }
-  case SILInstructionKind::DynamicPackIndexInst: {
-    CanPackType packType;
-    if (parseValueRef(Val, SILType::getBuiltinWordType(P.Context), InstLoc, B) ||
-        parseVerbatim("of") ||
-        P.parseToken(tok::sil_dollar, diag::expected_tok_in_sil_instr, "$") ||
-        parseASTPackType(packType))
-      return true;
-    ResultVal =
-        B.createDynamicPackIndex(InstLoc, Val, packType);
-    break;
-  }
+  case SILInstructionKind::DynamicPackIndexInst:
+    llvm_unreachable(
+        "DynamicPackIndexInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::PackPackIndexInst: {
     unsigned componentIndex = 0;
     CanPackType packType;
@@ -3349,14 +3325,9 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
 #undef UNARY_INSTRUCTION
 #undef REFCOUNTING_INSTRUCTION
 
-  case SILInstructionKind::HopToExecutorInst: {
-    bool mandatory = false;
-    if (parseSILOptional(mandatory, *this, "mandatory")
-        || parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createHopToExecutor(InstLoc, Val, mandatory);
-    break;
-  }
+  case SILInstructionKind::HopToExecutorInst:
+    llvm_unreachable(
+        "HopToExecutorInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::DestroyValueInst:
     llvm_unreachable("DestroyValueInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::BeginCOWMutationInst: {

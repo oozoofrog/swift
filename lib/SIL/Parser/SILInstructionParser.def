@@ -187,4 +187,10 @@ PARSE_SIL_VISITOR_ENTRY(GlobalAddrInst)
 PARSE_SIL_VISITOR_ENTRY(GlobalValueInst)
 PARSE_SIL_VISITOR_ENTRY(BaseAddrForOffsetInst)
 
+// Phase 3-12: Dynamic / Async follow-up instructions (4 instructions)
+PARSE_SIL_VISITOR_ENTRY(DynamicFunctionRefInst)
+PARSE_SIL_VISITOR_ENTRY(PreviousDynamicFunctionRefInst)
+PARSE_SIL_VISITOR_ENTRY(DynamicPackIndexInst)
+PARSE_SIL_VISITOR_ENTRY(HopToExecutorInst)
+
 #undef PARSE_SIL_VISITOR_ENTRY

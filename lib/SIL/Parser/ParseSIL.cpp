@@ -2844,53 +2844,9 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
   case SILInstructionKind::CondFailInst:
     llvm_unreachable("CondFailInst is handled by SILInstructionParserVisitor");
 
-  case SILInstructionKind::IncrementProfilerCounterInst: {
-    // First argument is the counter index.
-    unsigned CounterIdx;
-    if (parseInteger(CounterIdx, diag::expected_sil_profiler_counter_idx))
-      return true;
-
-    if (P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ","))
-      return true;
-
-    // Parse the PGO function name.
-    if (P.Tok.getKind() != tok::string_literal) {
-      P.diagnose(P.Tok, diag::expected_sil_profiler_counter_pgo_func_name);
-      return true;
-    }
-    // Drop the double quotes.
-    auto FuncName = P.Tok.getText().drop_front().drop_back();
-    P.consumeToken(tok::string_literal);
-
-    if (P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ","))
-      return true;
-
-    // Parse the number of counters.
-    if (parseVerbatim("num_counters"))
-      return true;
-
-    unsigned NumCounters;
-    if (parseInteger(NumCounters, diag::expected_sil_profiler_counter_total))
-      return true;
-
-    if (P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ","))
-      return true;
-
-    // Parse the PGO function hash.
-    if (parseVerbatim("hash"))
-      return true;
-
-    uint64_t Hash;
-    if (parseInteger(Hash, diag::expected_sil_profiler_counter_hash))
-      return true;
-
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    ResultVal = B.createIncrementProfilerCounter(InstLoc, CounterIdx, FuncName,
-                                                 NumCounters, Hash);
-    break;
-  }
+  case SILInstructionKind::IncrementProfilerCounterInst:
+    llvm_unreachable("IncrementProfilerCounterInst is handled by "
+                     "SILInstructionParserVisitor");
 
   case SILInstructionKind::ProjectBoxInst: {
     if (parseTypedValueRef(Val, B) ||
@@ -3012,21 +2968,9 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     ResultVal = B.createBuiltin(InstLoc, Id, ResultTy, subMap, Args);
     break;
   }
-  case SILInstructionKind::MergeIsolationRegionInst: {
-    SmallVector<SILValue, 4> Args;
-    do {
-      SILValue Val;
-      if (parseTypedValueRef(Val, B))
-        return true;
-      Args.push_back(Val);
-    } while (P.consumeIf(tok::comma));
-
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    ResultVal = B.createMergeIsolationRegion(InstLoc, Args);
-    break;
-  }
+  case SILInstructionKind::MergeIsolationRegionInst:
+    llvm_unreachable("MergeIsolationRegionInst is handled by "
+                     "SILInstructionParserVisitor");
   case SILInstructionKind::OpenExistentialAddrInst:
     if (parseOpenExistAddrKind() || parseTypedValueRef(Val, B) ||
         parseVerbatim("to") || parseSILType(Ty) ||
@@ -3330,184 +3274,46 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
         "HopToExecutorInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::DestroyValueInst:
     llvm_unreachable("DestroyValueInst is handled by SILInstructionParserVisitor");
-  case SILInstructionKind::BeginCOWMutationInst: {
-    bool native = false;
-    if (parseSILOptional(native, *this, "native") ||
-        parseTypedValueRef(Val, B) ||
-        parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createBeginCOWMutation(InstLoc, Val, native);
-    break;
-  }
-  case SILInstructionKind::EndCOWMutationInst: {
-    bool keepUnique = false;
-    if (parseSILOptional(keepUnique, *this, "keep_unique") ||
-        parseTypedValueRef(Val, B) ||
-        parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createEndCOWMutation(InstLoc, Val, keepUnique);
-    break;
-  }
-  case SILInstructionKind::EndCOWMutationAddrInst: {
-    if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createEndCOWMutationAddr(InstLoc, Val);
-    break;
-  }
+  case SILInstructionKind::BeginCOWMutationInst:
+    llvm_unreachable("BeginCOWMutationInst is handled by "
+                     "SILInstructionParserVisitor");
+  case SILInstructionKind::EndCOWMutationInst:
+    llvm_unreachable("EndCOWMutationInst is handled by "
+                     "SILInstructionParserVisitor");
+  case SILInstructionKind::EndCOWMutationAddrInst:
+    llvm_unreachable("EndCOWMutationAddrInst is handled by "
+                     "SILInstructionParserVisitor");
   case SILInstructionKind::DestroyNotEscapedClosureInst:
     llvm_unreachable("DestroyNotEscapedClosureInst is handled by SILInstructionParserVisitor");
 
-  case SILInstructionKind::DebugValueInst: {
-    PoisonRefs_t poisonRefs = DontPoisonRefs;
-    bool hasTrace = false;
-    UsesMoveableValueDebugInfo_t usesMoveableValueDebugInfo =
-        DoesNotUseMoveableValueDebugInfo;
-    SILDebugVariable VarInfo;
-
-    // Allow for poison and moved to be in either order.
-    StringRef attributeName;
-    SourceLoc attributeLoc;
-    while (parseSILOptional(attributeName, attributeLoc, *this)) {
-      if (attributeName == "poison")
-        poisonRefs = PoisonRefs;
-      else if (attributeName == "trace")
-        hasTrace = true;
-      else if (attributeName == "moveable_value_debuginfo")
-        usesMoveableValueDebugInfo = UsesMoveableValueDebugInfo;
-      else {
-        P.diagnose(attributeLoc, diag::sil_invalid_attribute_for_instruction,
-                   attributeName, "debug_value");
-        return true;
-      }
-    }
-
-    if (parseTypedValueRef(Val, B) || parseSILDebugVar(VarInfo) ||
-        parseSILDebugLocation(InstLoc, B))
-      return true;
-    if (Val->getType().isAddress())
-      assert(!poisonRefs && "debug_value w/ address value does not support poison");
-
-    if (Val->getType().isMoveOnly())
-      usesMoveableValueDebugInfo = UsesMoveableValueDebugInfo;
-
-    ResultVal = B.createDebugValue(InstLoc, Val, VarInfo, poisonRefs,
-                                   usesMoveableValueDebugInfo, hasTrace);
-    break;
-  }
+  case SILInstructionKind::DebugValueInst:
+    llvm_unreachable("DebugValueInst is handled by SILInstructionParserVisitor");
 
   case SILInstructionKind::DebugStepInst:
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createDebugStep(InstLoc);
-    break;
+    llvm_unreachable("DebugStepInst is handled by SILInstructionParserVisitor");
 
-  case SILInstructionKind::SpecifyTestInst: {
-    // Parse the specification string.
-    if (P.Tok.getKind() != tok::string_literal) {
-      P.diagnose(P.Tok, diag::expected_sil_specify_test_body);
-      return true;
-    }
-    // Drop the double quotes.
-    unsigned numQuotes = P.Tok.isMultilineString() ? 4 : 1;
-    auto ArgumentsSpecification =
-      P.Tok.getText().drop_front(numQuotes).drop_back(numQuotes).trim();
-    P.consumeToken(tok::string_literal);
-    auto *tsi = B.createSpecifyTestInst(InstLoc, ArgumentsSpecification);
-    SmallVector<StringRef, 4> components;
-    test::getTestSpecificationComponents(ArgumentsSpecification, components);
-    for (auto component : components) {
-      auto offset = 0;
-      size_t nameStart = StringRef::npos;
-      while ((nameStart = component.find_if([](char c) { return c == '%'; },
-                                            offset)) != StringRef::npos) {
-        auto nameEnd = component.find_if_not(
-            [](char c) { return clang::isAsciiIdentifierContinue(c); },
-            nameStart + 1);
-        if (nameEnd == StringRef::npos)
-          nameEnd = component.size();
-        auto name = component.substr(nameStart, nameEnd);
-        component = component.drop_front(nameEnd);
-        if (nameStart + 1 == nameEnd) {
-          continue;
-        }
-        auto *&entry = LocalValues[name];
-        if (entry) {
-          tsi->setValueForName(name, entry);
-        } else {
-          TestSpecsWithRefs[name].push_back(tsi);
-        }
-      }
-    }
-    ResultVal = tsi;
-    break;
-  }
+  case SILInstructionKind::SpecifyTestInst:
+    llvm_unreachable("SpecifyTestInst is handled by "
+                     "SILInstructionParserVisitor");
 
     // unchecked_ownership_conversion <reg> : <type>, <ownership> to <ownership>
-  case SILInstructionKind::UncheckedOwnershipConversionInst: {
-    ValueOwnershipKind LHSKind = OwnershipKind::None;
-    ValueOwnershipKind RHSKind = OwnershipKind::None;
-    SourceLoc Loc;
-
-    if (parseTypedValueRef(Val, Loc, B) ||
-        P.parseToken(tok::comma, diag::expected_sil_colon,
-                     "unchecked_ownership_conversion value ownership kind "
-                     "conversion specification") ||
-        parseSILOwnership(LHSKind) || parseVerbatim("to") ||
-        parseSILOwnership(RHSKind) || parseSILDebugLocation(InstLoc, B)) {
-      return true;
-    }
-
-    if (Val->getOwnershipKind() != LHSKind) {
-      return true;
-    }
-
-    ResultVal = B.createUncheckedOwnershipConversion(InstLoc, Val, RHSKind);
-    break;
-  }
+  case SILInstructionKind::UncheckedOwnershipConversionInst:
+    llvm_unreachable(
+        "UncheckedOwnershipConversionInst is handled by "
+        "SILInstructionParserVisitor");
 
   case SILInstructionKind::MoveValueInst:
     llvm_unreachable("MoveValueInst is handled by SILInstructionParserVisitor");
 
-  case SILInstructionKind::DropDeinitInst: {
-    if (parseTypedValueRef(Val, B))
-      return true;
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createDropDeinit(InstLoc, Val);
-    break;
-  }
+  case SILInstructionKind::DropDeinitInst:
+    llvm_unreachable("DropDeinitInst is handled by SILInstructionParserVisitor");
 
   case SILInstructionKind::MarkUnresolvedNonCopyableValueInst:
     llvm_unreachable("MarkUnresolvedNonCopyableValueInst is handled by SILInstructionParserVisitor");
 
-  case SILInstructionKind::MarkUnresolvedReferenceBindingInst: {
-    StringRef AttrName;
-    if (!parseSILOptional(AttrName, *this)) {
-      auto diag = diag::sil_markuncheckedreferencebinding_requires_attribute;
-      P.diagnose(InstLoc.getSourceLoc(), diag);
-      return true;
-    }
-
-    using Kind = MarkUnresolvedReferenceBindingInst::Kind;
-    Kind CKind = llvm::StringSwitch<Kind>(AttrName)
-                     .Case("inout", Kind::InOut)
-                     .Default(Kind::Invalid);
-
-    if (CKind == Kind::Invalid) {
-      auto diag = diag::sil_markuncheckedreferencebinding_invalid_attribute;
-      P.diagnose(InstLoc.getSourceLoc(), diag, AttrName);
-      return true;
-    }
-
-    if (parseTypedValueRef(Val, B))
-      return true;
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    auto *MVI = B.createMarkUnresolvedReferenceBindingInst(InstLoc, Val, CKind);
-    ResultVal = MVI;
-    break;
-  }
+  case SILInstructionKind::MarkUnresolvedReferenceBindingInst:
+    llvm_unreachable("MarkUnresolvedReferenceBindingInst is handled by "
+                     "SILInstructionParserVisitor");
 
   case SILInstructionKind::CopyableToMoveOnlyWrapperValueInst:
     llvm_unreachable("CopyableToMoveOnlyWrapperValueInst is handled by SILInstructionParserVisitor");
@@ -3521,64 +3327,12 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
   case SILInstructionKind::LoadBorrowInst:
     llvm_unreachable("LoadBorrowInst is handled by SILInstructionParserVisitor");
 
-  case SILInstructionKind::BeginBorrowInst: {
-    SourceLoc AddrLoc;
+  case SILInstructionKind::BeginBorrowInst:
+    llvm_unreachable("BeginBorrowInst is handled by SILInstructionParserVisitor");
 
-    auto isLexical = IsNotLexical;
-    auto hasPointerEscape = DoesNotHavePointerEscape;
-    auto fromVarDecl = IsNotFromVarDecl;
-    auto fixed = BeginBorrowInst::IsNotFixed;
-
-    StringRef AttrName;
-    SourceLoc AttrLoc;
-    while (parseSILOptional(AttrName, AttrLoc, *this)) {
-      if (AttrName == "lexical")
-        isLexical = IsLexical;
-      else if (AttrName == "pointer_escape")
-        hasPointerEscape = HasPointerEscape;
-      else if (AttrName == "var_decl")
-        fromVarDecl = IsFromVarDecl;
-      else if (AttrName == "fixed")
-        fixed = BeginBorrowInst::IsFixed;
-      else {
-        P.diagnose(InstLoc.getSourceLoc(),
-                   diag::sil_invalid_attribute_for_instruction, AttrName,
-                   "begin_borrow");
-        return true;
-      }
-    }
-
-    if (parseTypedValueRef(Val, AddrLoc, B) ||
-        parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    ResultVal = B.createBeginBorrow(InstLoc, Val, isLexical, hasPointerEscape,
-                                    fromVarDecl, fixed);
-    break;
-  }
-
-  case SILInstructionKind::BorrowedFromInst: {
-    SILValue guaranteedValue;
-    if (parseTypedValueRef(guaranteedValue, B))
-      return true;
-
-    if (parseVerbatim("from") ||
-        P.parseToken(tok::l_paren, diag::expected_tok_in_sil_instr, "("))
-      return true;
-
-    if (P.Tok.isNot(tok::r_paren)) {
-      do {
-        if (parseTypedValueRef(Val, B))
-          return true;
-        OpList.push_back(Val);
-      } while (P.consumeIf(tok::comma));
-    }
-    if (P.parseToken(tok::r_paren, diag::expected_tok_in_sil_instr, ")"))
-      return true;
-
-    ResultVal = B.createBorrowedFrom(InstLoc, guaranteedValue, OpList);
-    break;
-  }
+  case SILInstructionKind::BorrowedFromInst:
+    llvm_unreachable("BorrowedFromInst is handled by "
+                     "SILInstructionParserVisitor");
 
 
 #define NEVER_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, ...)             \
@@ -3598,244 +3352,23 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
   }
 #include "swift/AST/ReferenceStorage.def"
 
-  case SILInstructionKind::CopyBlockWithoutEscapingInst: {
-    SILValue Closure;
-    if (parseTypedValueRef(Val, B) || parseVerbatim("withoutEscaping") ||
-        parseTypedValueRef(Closure, B) || parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    ResultVal = B.createCopyBlockWithoutEscaping(InstLoc, Val, Closure);
-    break;
-  }
+  case SILInstructionKind::CopyBlockWithoutEscapingInst:
+    llvm_unreachable("CopyBlockWithoutEscapingInst is handled by "
+                     "SILInstructionParserVisitor");
 
   case SILInstructionKind::MarkDependenceInst:
-  case SILInstructionKind::MarkDependenceAddrInst: {
-    std::optional<MarkDependenceKind> dependenceKind;
-    SILValue Base;
-    auto parseDependenceKind = [](StringRef Str) {
-      return llvm::StringSwitch<std::optional<MarkDependenceKind>>(Str)
-        .Case("unresolved", MarkDependenceKind::Unresolved)
-        .Case("nonescaping", MarkDependenceKind::NonEscaping)
-        .Default(std::nullopt);
-    };
-    if (parseSILQualifier<MarkDependenceKind>(dependenceKind,
-                                              parseDependenceKind)
-        || parseTypedValueRef(Val, B) || parseVerbatim("on")
-        || parseTypedValueRef(Base, B)) { 
-      return true;
-    }
-    if (!dependenceKind) {
-      dependenceKind = MarkDependenceKind::Escaping;
-    }
-    if (Opcode == SILInstructionKind::MarkDependenceInst) {
-      ValueOwnershipKind forwardingOwnership = Val->getOwnershipKind();
-      if (parseForwardingOwnershipKind(forwardingOwnership)
-          || parseSILDebugLocation(InstLoc, B)) {
-        return true;
-      }
-      ResultVal = B.createMarkDependence(InstLoc, Val, Base,
-                                         forwardingOwnership,
-                                         dependenceKind.value());
-    } else {
-      if (parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      ResultVal = B.createMarkDependenceAddr(InstLoc, Val, Base,
-                                             dependenceKind.value());
-    }
-    break;
-  }
+  case SILInstructionKind::MarkDependenceAddrInst:
+    llvm_unreachable("MarkDependence{,Addr}Inst are handled by "
+                     "SILInstructionParserVisitor");
 
   case SILInstructionKind::BeginDeallocRefInst:
     llvm_unreachable("BeginDeallocRefInst is handled by SILInstructionParserVisitor");
 
-  case SILInstructionKind::KeyPathInst: {
-    SmallVector<KeyPathPatternComponent, 4> components;
-    SILType Ty;
-    if (parseSILType(Ty) ||
-        P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ","))
-      return true;
+  case SILInstructionKind::KeyPathInst:
+    llvm_unreachable("KeyPathInst is handled by SILInstructionParserVisitor");
 
-    GenericParamList *patternParams = nullptr;
-    GenericSignature patternSig;
-    CanType rootType;
-    StringRef objcString;
-    SmallVector<SILType, 4> operandTypes;
-    {
-      patternParams = P.maybeParseGenericParams().getPtrOrNull();
-      patternSig = handleSILGenericParams(patternParams, &P.SF);
-
-      if (P.parseToken(tok::l_paren, diag::expected_tok_in_sil_instr, "("))
-        return true;
-
-      while (true) {
-        Identifier componentKind;
-        SourceLoc componentLoc;
-        if (parseSILIdentifier(componentKind, componentLoc,
-                               diag::sil_keypath_expected_component_kind))
-          return true;
-
-        if (componentKind.str() == "root") {
-          if (P.parseToken(tok::sil_dollar, diag::expected_tok_in_sil_instr,
-                           "$") ||
-              parseASTType(rootType, patternSig, patternParams))
-            return true;
-        } else if (componentKind.str() == "objc") {
-          auto tok = P.Tok;
-          if (P.parseToken(tok::string_literal, diag::expected_tok_in_sil_instr,
-                           "string literal"))
-            return true;
-
-          auto objcStringValue = tok.getText().drop_front().drop_back();
-          objcString =
-              StringRef(P.Context.AllocateCopy<char>(objcStringValue.begin(),
-                                                     objcStringValue.end()),
-                        objcStringValue.size());
-        } else {
-          KeyPathPatternComponent component;
-          if (parseKeyPathPatternComponent(component, operandTypes,
-                                           componentLoc, componentKind, InstLoc,
-                                           patternSig, patternParams))
-            return true;
-          components.push_back(component);
-        }
-
-        if (!P.consumeIf(tok::semi))
-          break;
-      }
-
-      if (P.parseToken(tok::r_paren, diag::expected_tok_in_sil_instr, ")") ||
-          parseSILDebugLocation(InstLoc, B))
-        return true;
-    }
-
-    if (rootType.isNull())
-      P.diagnose(InstLoc.getSourceLoc(), diag::sil_keypath_no_root);
-
-    SmallVector<ParsedSubstitution, 4> parsedSubs;
-    if (parseSubstitutions(parsedSubs, ContextGenericSig, ContextGenericParams))
-      return true;
-
-    SubstitutionMap subMap;
-    if (!parsedSubs.empty()) {
-      if (!patternSig) {
-        P.diagnose(InstLoc.getSourceLoc(),
-                   diag::sil_substitutions_on_non_polymorphic_type);
-        return true;
-      }
-
-      subMap = getApplySubstitutionsFromParsed(*this, patternSig, parsedSubs);
-      if (!subMap)
-        return true;
-    }
-
-    SmallVector<SILValue, 4> operands;
-
-    if (P.consumeIf(tok::l_paren)) {
-      while (true) {
-        SILValue v;
-
-        if (operands.size() >= operandTypes.size() ||
-            !operandTypes[operands.size()]) {
-          P.diagnose(P.Tok, diag::sil_keypath_no_use_of_operand_in_pattern,
-                     operands.size());
-          return true;
-        }
-
-        auto ty = operandTypes[operands.size()].subst(SILMod, subMap);
-
-        if (parseValueRef(v, ty, RegularLocation(P.Tok.getLoc()), B))
-          return true;
-        operands.push_back(v);
-
-        if (P.consumeIf(tok::comma))
-          continue;
-        if (P.consumeIf(tok::r_paren))
-          break;
-        return true;
-      }
-    }
-
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    CanGenericSignature canSig;
-    if (patternSig) {
-      canSig = patternSig.getCanonicalSignature();
-    }
-    CanType leafType;
-    if (!components.empty())
-      leafType = components.back().getComponentType();
-    else
-      leafType = rootType;
-    auto pattern = KeyPathPattern::get(B.getModule(), canSig, rootType,
-                                       leafType, components, objcString);
-
-    ResultVal = B.createKeyPath(InstLoc, pattern, subMap, operands, Ty);
-    break;
-  }
-
-  case SILInstructionKind::ThunkInst: {
-    // We have to parse a sil optional.
-    StringRef attrName;
-    if (!parseSILOptional(attrName, *this)) {
-      P.diagnose(OpcodeLoc, diag::sil_failed_to_parse_sil_optional);
-      return true;
-    }
-
-    auto kind = llvm::StringSwitch<ThunkInst::Kind>(attrName)
-                    .Case("identity", ThunkInst::Kind::Identity)
-                    .Default(ThunkInst::Kind::Invalid);
-    if (!kind) {
-      P.diagnose(OpcodeLoc, diag::sil_thunkinst_failed_to_parse_kind, attrName);
-      return true;
-    }
-
-    UnresolvedValueName fnName;
-    if (parseValueName(fnName)) {
-      return true;
-    }
-
-    SmallVector<ParsedSubstitution, 4> parsedSubs;
-    if (parseSubstitutions(parsedSubs))
-      return true;
-
-    // TODO: When we support full parameters, add them here.
-    SILType thunkTy;
-    SourceLoc TypeLoc;
-    GenericSignature genericSig;
-    GenericParamList *genericParams = nullptr;
-    if (P.parseToken(tok::l_paren, diag::expected_tok_in_sil_instr, "(") ||
-        P.parseToken(tok::r_paren, diag::expected_tok_in_sil_instr, ")") ||
-        P.parseToken(tok::colon, diag::expected_tok_in_sil_instr, ":") ||
-        parseSILType(thunkTy, TypeLoc, genericSig, genericParams))
-      return true;
-
-    auto FTI = thunkTy.getAs<SILFunctionType>();
-    if (!FTI) {
-      P.diagnose(TypeLoc, diag::expected_sil_type_kind, "be a function");
-      return true;
-    }
-
-    SubstitutionMap subs;
-    if (!parsedSubs.empty()) {
-      if (!genericSig) {
-        P.diagnose(TypeLoc, diag::sil_substitutions_on_non_polymorphic_type);
-        return true;
-      }
-      subs = getApplySubstitutionsFromParsed(*this, genericSig, parsedSubs);
-      if (!subs)
-        return true;
-    }
-
-    if (parseSILDebugLocation(InstLoc, B)) {
-      return true;
-    }
-
-    SILValue fnVal = getLocalValue(fnName, thunkTy, InstLoc, B);
-    ResultVal = B.createThunk(InstLoc, fnVal, kind, subs);
-    break;
-  }
+  case SILInstructionKind::ThunkInst:
+    llvm_unreachable("ThunkInst is handled by SILInstructionParserVisitor");
 
   // Phase 7: Conversion/Cast instructions - migrated to visitor pattern
   case SILInstructionKind::UncheckedRefCastInst:

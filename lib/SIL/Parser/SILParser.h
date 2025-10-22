@@ -40,6 +40,7 @@ struct ParsedSpecAttr {
 /// The parser for an individual SIL function.
 class SILParser {
   friend SILParserState;
+  friend class SILInstructionParserVisitor;
 
 public:
   Parser &P;

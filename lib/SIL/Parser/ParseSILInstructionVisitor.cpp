@@ -111,3 +111,4 @@ SILInstructionParserVisitor::dispatch(SILInstructionKind Opcode) {
 #include "ParseSILInstructionVisitorImpl/Phase3_11_Methods.inc"
 #include "ParseSILInstructionVisitorImpl/Phase3_11_Memory.inc"
 #include "ParseSILInstructionVisitorImpl/Phase3_12_Dynamic.inc"
+#include "ParseSILInstructionVisitorImpl/Phase3_13_Debug.inc"

@@ -4518,78 +4518,10 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     case SILInstructionKind::ClassMethodInst:
     case SILInstructionKind::SuperMethodInst:
     case SILInstructionKind::ObjCMethodInst:
-    case SILInstructionKind::ObjCSuperMethodInst: {
-      SILDeclRef Member;
-      SILType MethodTy;
-      SourceLoc TyLoc;
-      if (parseTypedValueRef(Val, B) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ","))
-        return true;
-
-      if (parseSILDeclRef(Member, true))
-        return true;
-
-      if (P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-          parseSILType(MethodTy, TyLoc) || parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      switch (Opcode) {
-      default:
-        llvm_unreachable("Out of sync with parent switch");
-      case SILInstructionKind::ClassMethodInst:
-        ResultVal = B.createClassMethod(InstLoc, Val, Member, MethodTy);
-        break;
-      case SILInstructionKind::SuperMethodInst:
-        ResultVal = B.createSuperMethod(InstLoc, Val, Member, MethodTy);
-        break;
-      case SILInstructionKind::ObjCMethodInst:
-        ResultVal = B.createObjCMethod(InstLoc, Val, Member, MethodTy);
-        break;
-      case SILInstructionKind::ObjCSuperMethodInst:
-        ResultVal = B.createObjCSuperMethod(InstLoc, Val, Member, MethodTy);
-        break;
-      }
-      break;
-    }
-    case SILInstructionKind::WitnessMethodInst: {
-      CanType LookupTy;
-      SILDeclRef Member;
-      SILType MethodTy;
-      SourceLoc TyLoc;
-      if (P.parseToken(tok::sil_dollar, diag::expected_tok_in_sil_instr, "$") ||
-          parseASTType(LookupTy) ||
-          P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ","))
-        return true;
-      if (parseSILDeclRef(Member, true))
-        return true;
-      // Optional operand.
-      SILValue Operand;
-      if (P.Tok.is(tok::comma)) {
-        P.consumeToken(tok::comma);
-        if (parseTypedValueRef(Operand, B))
-          return true;
-      }
-      if (P.parseToken(tok::colon, diag::expected_tok_in_sil_instr, ":") ||
-          parseSILType(MethodTy, TyLoc) || parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      // If LookupTy is a non-archetype, look up its conformance.
-      ProtocolDecl *proto =
-          dyn_cast<ProtocolDecl>(Member.getDecl()->getDeclContext());
-      if (!proto) {
-        P.diagnose(TyLoc, diag::sil_witness_method_not_protocol);
-        return true;
-      }
-      auto conformance = lookupConformance(LookupTy, proto);
-      if (conformance.isInvalid()) {
-        P.diagnose(TyLoc, diag::sil_witness_method_type_does_not_conform);
-        return true;
-      }
-
-      ResultVal = B.createWitnessMethod(InstLoc, LookupTy, conformance, Member,
-                                        MethodTy);
-      break;
-    }
+    case SILInstructionKind::ObjCSuperMethodInst:
+      llvm_unreachable("Class/Super/ObjC method instructions are handled by SILInstructionParserVisitor");
+    case SILInstructionKind::WitnessMethodInst:
+      llvm_unreachable("WitnessMethodInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::CopyAddrInst:
       llvm_unreachable("CopyAddrInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::ExplicitCopyAddrInst:
@@ -4597,31 +4529,10 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     case SILInstructionKind::MarkUnresolvedMoveAddrInst:
       llvm_unreachable("MarkUnresolvedMoveAddrInst is handled by SILInstructionParserVisitor");
 
-    case SILInstructionKind::BindMemoryInst: {
-      SILValue IndexVal;
-      SILType EltTy;
-      if (parseTypedValueRef(Val, B)
-          || P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",")
-          || parseTypedValueRef(IndexVal, B)
-          || parseVerbatim("to")
-          || parseSILType(EltTy)
-          || parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      ResultVal = B.createBindMemory(InstLoc, Val, IndexVal, EltTy);
-      break;
-    }
-    case SILInstructionKind::RebindMemoryInst: {
-      SILValue InToken;
-      if (parseTypedValueRef(Val, B)
-          || parseVerbatim("to")
-          || parseTypedValueRef(InToken, B)
-          || parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      ResultVal = B.createRebindMemory(InstLoc, Val, InToken);
-      break;
-    }
+    case SILInstructionKind::BindMemoryInst:
+      llvm_unreachable("BindMemoryInst is handled by SILInstructionParserVisitor");
+    case SILInstructionKind::RebindMemoryInst:
+      llvm_unreachable("RebindMemoryInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::StructInst:
       llvm_unreachable("StructInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::ObjectInst: {

@@ -164,4 +164,13 @@ PARSE_SIL_VISITOR_ENTRY(GetAsyncContinuationInst)
 PARSE_SIL_VISITOR_ENTRY(GetAsyncContinuationAddrInst)
 PARSE_SIL_VISITOR_ENTRY(HasSymbolInst)
 
+// Phase 3-11: Method lookup & memory utilities (7 instructions)
+PARSE_SIL_VISITOR_ENTRY(ClassMethodInst)
+PARSE_SIL_VISITOR_ENTRY(SuperMethodInst)
+PARSE_SIL_VISITOR_ENTRY(ObjCMethodInst)
+PARSE_SIL_VISITOR_ENTRY(ObjCSuperMethodInst)
+PARSE_SIL_VISITOR_ENTRY(WitnessMethodInst)
+PARSE_SIL_VISITOR_ENTRY(BindMemoryInst)
+PARSE_SIL_VISITOR_ENTRY(RebindMemoryInst)
+
 #undef PARSE_SIL_VISITOR_ENTRY

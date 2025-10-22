@@ -19,6 +19,7 @@
 
 #include "ParseSILInstructionVisitor.h"
 #include "SILParser.h"
+#include "swift/AST/ConformanceLookup.h"
 #include "swift/SIL/SILBuilder.h"
 #include "swift/SIL/SILDebugVariable.h"
 #include "swift/SIL/SILLocation.h"
@@ -107,3 +108,4 @@ SILInstructionParserVisitor::dispatch(SILInstructionKind Opcode) {
 #include "ParseSILInstructionVisitorImpl/Phase3_8_ControlFlow.inc"
 #include "ParseSILInstructionVisitorImpl/Phase3_9_Casts.inc"
 #include "ParseSILInstructionVisitorImpl/Phase3_10_Existential.inc"
+#include "ParseSILInstructionVisitorImpl/Phase3_11_Methods.inc"

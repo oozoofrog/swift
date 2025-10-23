@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Phase 2: Basic Instructions (14 instructions)
-//   - Apply family (6): Apply, BeginApply, PartialApply, TryApply, AbortApply, EndApply
+// Phase 2: Basic Instructions (10 instructions)
+//   - Apply family (AbortApply, EndApply only; Apply/BeginApply/PartialApply/TryApply moved to Phase 3-17)
 //   - Tuple family (5): Tuple, TupleExtract, TupleElementAddr, TuplePackExtract, TuplePackElementAddr
 //   - Metatype family (3): Metatype, ValueMetatype, ExistentialMetatype
 //
@@ -26,35 +26,6 @@
 #define PARSE_SIL_INSTRUCTION_VISITOR_PHASE2_INC
 
 //===----------------------------------------------------------------------===//
-// Phase 2: Apply-family instructions (6 instructions)
-//===----------------------------------------------------------------------===//
-
-// ApplyInst, BeginApplyInst, PartialApplyInst, TryApplyInst
-// These four instructions share the same parsing logic via parseCallInstruction
-bool SILInstructionParserVisitor::visitApplyInst() {
-  SILLocation InstLoc = RegularLocation(OpcodeLoc, /*implicit*/ false);
-  return P.parseCallInstruction(InstLoc, SILInstructionKind::ApplyInst, B,
-                                ResultVal);
-}
-
-bool SILInstructionParserVisitor::visitBeginApplyInst() {
-  SILLocation InstLoc = RegularLocation(OpcodeLoc, /*implicit*/ false);
-  return P.parseCallInstruction(InstLoc, SILInstructionKind::BeginApplyInst, B,
-                                ResultVal);
-}
-
-bool SILInstructionParserVisitor::visitPartialApplyInst() {
-  SILLocation InstLoc = RegularLocation(OpcodeLoc, /*implicit*/ false);
-  return P.parseCallInstruction(InstLoc, SILInstructionKind::PartialApplyInst,
-                                B, ResultVal);
-}
-
-bool SILInstructionParserVisitor::visitTryApplyInst() {
-  SILLocation InstLoc = RegularLocation(OpcodeLoc, /*implicit*/ false);
-  return P.parseCallInstruction(InstLoc, SILInstructionKind::TryApplyInst, B,
-                                ResultVal);
-}
-
 // AbortApplyInst - Migrated from ParseSIL.cpp
 bool SILInstructionParserVisitor::visitAbortApplyInst() {
   SILLocation InstLoc = RegularLocation(OpcodeLoc, /*implicit*/ false);

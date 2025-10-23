@@ -213,4 +213,10 @@ PARSE_SIL_VISITOR_ENTRY(MarkDependenceAddrInst)
 PARSE_SIL_VISITOR_ENTRY(KeyPathInst)
 PARSE_SIL_VISITOR_ENTRY(ThunkInst)
 
+// Phase 3-N: Literal / reference instructions (4 instructions)
+PARSE_SIL_VISITOR_ENTRY(FloatLiteralInst)
+PARSE_SIL_VISITOR_ENTRY(StringLiteralInst)
+PARSE_SIL_VISITOR_ENTRY(ProjectExistentialBoxInst)
+PARSE_SIL_VISITOR_ENTRY(FunctionRefInst)
+
 #undef PARSE_SIL_VISITOR_ENTRY

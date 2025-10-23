@@ -2737,109 +2737,10 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     ResultVal = B.createIntegerLiteral(InstLoc, Ty, value);
     break;
   }
-  case SILInstructionKind::FloatLiteralInst: {
-    SILType Ty;
-    if (parseSILType(Ty) ||
-        P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ","))
-      return true;
-
-    // The value is expressed as bits.
-    if (P.Tok.getKind() != tok::integer_literal) {
-      P.diagnose(P.Tok, diag::expected_tok_in_sil_instr, "integer");
-      return true;
-    }
-
-    auto floatTy = Ty.getAs<BuiltinFloatType>();
-    if (!floatTy) {
-      P.diagnose(P.Tok, diag::sil_float_literal_not_float_type);
-      return true;
-    }
-
-    StringRef text = prepareIntegerLiteralForParsing(P.Tok.getText());
-
-    APInt bits(floatTy->getBitWidth(), 0);
-    bool error = text.getAsInteger(0, bits);
-    assert(!error && "float_literal token did not parse as APInt?!");
-    (void)error;
-
-    if (bits.getBitWidth() != floatTy->getBitWidth())
-      bits = bits.zextOrTrunc(floatTy->getBitWidth());
-
-    APFloat value(floatTy->getAPFloatSemantics(), bits);
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createFloatLiteral(InstLoc, Ty, value);
-    P.consumeToken(tok::integer_literal);
-    break;
-  }
-  case SILInstructionKind::StringLiteralInst: {
-    if (P.Tok.getKind() != tok::identifier) {
-      P.diagnose(P.Tok, diag::sil_string_no_encoding);
-      return true;
-    }
-
-    StringLiteralInst::Encoding encoding;
-    if (P.Tok.getText() == "utf8") {
-      encoding = StringLiteralInst::Encoding::UTF8;
-    } else if (P.Tok.getText() == "objc_selector") {
-      encoding = StringLiteralInst::Encoding::ObjCSelector;
-    } else if (P.Tok.getText() == "bytes") {
-      encoding = StringLiteralInst::Encoding::Bytes;
-    } else if (P.Tok.getText() == "oslog") {
-      encoding = StringLiteralInst::Encoding::UTF8_OSLOG;
-    } else {
-      P.diagnose(P.Tok, diag::sil_string_invalid_encoding, P.Tok.getText());
-      return true;
-    }
-    P.consumeToken(tok::identifier);
-
-    if (P.Tok.getKind() != tok::string_literal) {
-      P.diagnose(P.Tok, diag::expected_tok_in_sil_instr, "string");
-      return true;
-    }
-
-    // Parse the string.
-    SmallVector<Lexer::StringSegment, 1> segments;
-    P.L->getStringLiteralSegments(P.Tok, segments);
-    assert(segments.size() == 1);
-
-    P.consumeToken(tok::string_literal);
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    SmallVector<char, 128> stringBuffer;
-
-    if (encoding == StringLiteralInst::Encoding::Bytes) {
-      // Decode hex bytes.
-      CharSourceRange rawStringRange(segments.front().Loc,
-                                     segments.front().Length);
-      StringRef rawString = P.SourceMgr.extractText(rawStringRange);
-      if (rawString.size() & 1) {
-        P.diagnose(P.Tok, diag::expected_tok_in_sil_instr,
-                   "even number of hex bytes");
-        return true;
-      }
-      while (!rawString.empty()) {
-        unsigned byte1 = llvm::hexDigitValue(rawString[0]);
-        unsigned byte2 = llvm::hexDigitValue(rawString[1]);
-        if (byte1 == -1U || byte2 == -1U) {
-          P.diagnose(P.Tok, diag::expected_tok_in_sil_instr,
-                     "hex bytes should contain 0-9, a-f, A-F only");
-          return true;
-        }
-        stringBuffer.push_back((unsigned char)(byte1 << 4) | byte2);
-        rawString = rawString.drop_front(2);
-      }
-
-      ResultVal = B.createStringLiteral(InstLoc, stringBuffer, encoding);
-      break;
-    }
-
-    StringRef string =
-        P.L->getEncodedStringSegment(segments.front(), stringBuffer);
-    ResultVal = B.createStringLiteral(InstLoc, string, encoding);
-    break;
-  }
+  case SILInstructionKind::FloatLiteralInst:
+    llvm_unreachable("FloatLiteralInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::StringLiteralInst:
+    llvm_unreachable("StringLiteralInst is handled by SILInstructionParserVisitor");
 
   case SILInstructionKind::CondFailInst:
     llvm_unreachable("CondFailInst is handled by SILInstructionParserVisitor");
@@ -2871,22 +2772,11 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     break;
   }
 
-  case SILInstructionKind::ProjectExistentialBoxInst: {
-    SILType Ty;
-    if (parseSILType(Ty) || parseVerbatim("in") || parseTypedValueRef(Val, B) ||
-        parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createProjectExistentialBox(InstLoc, Ty, Val);
-    break;
-  }
+  case SILInstructionKind::ProjectExistentialBoxInst:
+    llvm_unreachable("ProjectExistentialBoxInst is handled by SILInstructionParserVisitor");
 
-  case SILInstructionKind::FunctionRefInst: {
-    SILFunction *Fn;
-    if (parseSILFunctionRef(InstLoc, Fn) || parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createFunctionRef(InstLoc, Fn);
-    break;
-  }
+  case SILInstructionKind::FunctionRefInst:
+    llvm_unreachable("FunctionRefInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::DynamicFunctionRefInst:
     llvm_unreachable(
         "DynamicFunctionRefInst is handled by SILInstructionParserVisitor");

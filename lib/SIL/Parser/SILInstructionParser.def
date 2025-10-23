@@ -247,4 +247,10 @@ PARSE_SIL_VISITOR_ENTRY(PackPackIndexInst)
 PARSE_SIL_VISITOR_ENTRY(AssignInst)
 PARSE_SIL_VISITOR_ENTRY(AssignOrInitInst)
 
+// Phase 3-17: Apply-family instructions (4 instructions)
+PARSE_SIL_VISITOR_ENTRY(ApplyInst)
+PARSE_SIL_VISITOR_ENTRY(BeginApplyInst)
+PARSE_SIL_VISITOR_ENTRY(PartialApplyInst)
+PARSE_SIL_VISITOR_ENTRY(TryApplyInst)
+
 #undef PARSE_SIL_VISITOR_ENTRY

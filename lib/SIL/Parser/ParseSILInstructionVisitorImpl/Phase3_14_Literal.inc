@@ -1,6 +1,6 @@
-//===--- Phase3_N_Literal.inc - Phase 3-N Literal Visit Methods -*- C++ -*-===//
+//===--- Phase3_14_Literal.inc - Phase 3-14 Visit Methods -*- C++ -*-===//
 //
-// Phase 3-N (part 1): Literal / reference instructions (4 instructions)
+// Phase 3-14: Literal / reference instructions (4 instructions)
 //   - Float literal parsing
 //   - String literal parsing
 //   - Project existential box helper
@@ -9,8 +9,8 @@
 // Related: swift#42962 (SR-340)
 //===----------------------------------------------------------------------===//
 
-#ifndef PARSE_SIL_INSTRUCTION_VISITOR_PHASE3N_LITERAL_INC
-#define PARSE_SIL_INSTRUCTION_VISITOR_PHASE3N_LITERAL_INC
+#ifndef PARSE_SIL_INSTRUCTION_VISITOR_PHASE314_LITERAL_INC
+#define PARSE_SIL_INSTRUCTION_VISITOR_PHASE314_LITERAL_INC
 
 bool SILInstructionParserVisitor::visitFloatLiteralInst() {
   SILLocation InstLoc = RegularLocation(OpcodeLoc, /*implicit*/ false);
@@ -141,4 +141,4 @@ bool SILInstructionParserVisitor::visitFunctionRefInst() {
   return false; // Success
 }
 
-#endif // PARSE_SIL_INSTRUCTION_VISITOR_PHASE3N_LITERAL_INC
+#endif // PARSE_SIL_INSTRUCTION_VISITOR_PHASE314_LITERAL_INC

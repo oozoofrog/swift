@@ -249,4 +249,7 @@ PARSE_SIL_VISITOR_ENTRY(BeginApplyInst)
 PARSE_SIL_VISITOR_ENTRY(PartialApplyInst)
 PARSE_SIL_VISITOR_ENTRY(TryApplyInst)
 
+// Phase 3-18: Switch instructions (1 instruction)
+PARSE_SIL_VISITOR_ENTRY(SwitchValueInst)
+
 #undef PARSE_SIL_VISITOR_ENTRY

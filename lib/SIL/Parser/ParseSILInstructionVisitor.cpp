@@ -118,3 +118,4 @@ SILInstructionParserVisitor::dispatch(SILInstructionKind Opcode) {
 #include "ParseSILInstructionVisitorImpl/Phase3_15_OpenPack.inc"
 #include "ParseSILInstructionVisitorImpl/Phase3_16_Assign.inc"
 #include "ParseSILInstructionVisitorImpl/Phase3_17_Apply.inc"
+#include "ParseSILInstructionVisitorImpl/Phase3_18_Switch.inc"

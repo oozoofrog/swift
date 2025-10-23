@@ -10,6 +10,60 @@
 #ifndef PARSE_SIL_INSTRUCTION_VISITOR_PHASE316_ASSIGN_INC
 #define PARSE_SIL_INSTRUCTION_VISITOR_PHASE316_ASSIGN_INC
 
+static bool parseAssignOrInitModeVisitor(SILParser &Parser,
+                                         AssignOrInitInst::Mode &Result) {
+  StringRef Str;
+  SourceLoc Loc;
+  if (!parseSILOptional(Str, Loc, Parser)) {
+    Result = AssignOrInitInst::Unknown;
+    return false;
+  }
+
+  auto Mode = llvm::StringSwitch<AssignOrInitInst::Mode>(Str)
+                  .Case("init", AssignOrInitInst::Init)
+                  .Case("set", AssignOrInitInst::Set)
+                  .Default(AssignOrInitInst::Unknown);
+
+  if (Mode == AssignOrInitInst::Unknown)
+    return true;
+
+  Result = Mode;
+  return false;
+}
+
+static bool parseAssignOrInitAssignmentsVisitor(
+    llvm::SmallVectorImpl<unsigned> &assignments, SILParser &Parser) {
+  for (;;) {
+    SourceLoc loc;
+    if (!Parser.P.consumeIf(tok::l_square))
+      return false;
+
+    Identifier Id;
+    if (Parser.parseSILIdentifier(Id, loc, diag::expected_in_attribute_list))
+      return true;
+
+    if (!Id.is("assign")) {
+      Parser.P.diagnose(loc, diag::sil_invalid_attribute_for_expected,
+                        Id.str(), "assign");
+      return true;
+    }
+
+    if (!Parser.P.consumeIf(tok::equal)) {
+      Parser.P.diagnose(loc, diag::expected_equal_in_sil_instr);
+      return true;
+    }
+
+    uint64_t index;
+    if (Parser.parseInteger(index, diag::expected_in_attribute_list))
+      return true;
+
+    if (Parser.P.parseToken(tok::r_square, diag::expected_in_attribute_list))
+      return true;
+
+    assignments.push_back(static_cast<unsigned>(index));
+  }
+}
+
 bool SILInstructionParserVisitor::visitPackPackIndexInst() {
   SILLocation InstLoc = RegularLocation(OpcodeLoc, /*implicit*/ false);
   unsigned componentIndex = 0;
@@ -89,8 +143,8 @@ bool SILInstructionParserVisitor::visitAssignOrInitInst() {
   AssignOrInitInst::Mode mode;
   llvm::SmallVector<unsigned, 2> assignments;
 
-  if (P.parseAssignOrInitMode(mode, *this) ||
-      P.parseAssignOrInitAssignments(assignments, *this) ||
+  if (parseAssignOrInitModeVisitor(P, mode) ||
+      parseAssignOrInitAssignmentsVisitor(assignments, P) ||
       P.parseSILDottedPath(propDecl) ||
       P.P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
       P.parseVerbatim("self") || P.parseTypedValueRef(selfValue, B) ||

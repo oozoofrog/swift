@@ -20,11 +20,13 @@
 #include "ParseSILInstructionVisitor.h"
 #include "SILParser.h"
 #include "swift/AST/ConformanceLookup.h"
+#include "swift/AST/GenericEnvironment.h"
 #include "swift/SIL/SILBuilder.h"
 #include "swift/SIL/SILDebugVariable.h"
 #include "swift/SIL/SILLocation.h"
 #include "swift/SIL/ValueUtils.h"
 #include "swift/Subsystems.h"
+#include "swift/SIL/ParseTestSpecification.h"
 #include "swift/Parse/Lexer.h"
 
 using namespace swift;

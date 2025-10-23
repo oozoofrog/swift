@@ -160,7 +160,7 @@ bool SILInstructionParserVisitor::visitOpenPackElementInst() {
     P.P.diagnose(P.P.Tok, diag::expected_generic_signature);
     return true;
   }
-  openedGenerics = P.maybeParseGenericParams().getPtrOrNull();
+  openedGenerics = P.P.maybeParseGenericParams().getPtrOrNull();
   if (!openedGenerics)
     return true;
 
@@ -196,13 +196,13 @@ bool SILInstructionParserVisitor::visitOpenPackElementInst() {
 
   UUID uuid;
   if (!P.P.consumeIf(tok::comma) || P.parseVerbatim("uuid") ||
-      P.parseUUIDString(uuid, diag::sil_expected_uuid))
+      P.P.parseUUIDString(uuid, diag::sil_expected_uuid))
     return true;
 
   auto openedElementSig = P.P.Context.getOpenedElementSignature(
       openedGenericsSig.getCanonicalSignature(), shapeParam);
 
-  auto openedEnv = GenericEnvironment::forOpenedElement(
+  auto openedEnv = swift::GenericEnvironment::forOpenedElement(
       openedElementSig, uuid, shapeParam, openedSubMap);
 
   ResultVal = B.createOpenPackElement(InstLoc, Val, openedEnv);
@@ -258,10 +258,16 @@ bool SILInstructionParserVisitor::visitUncheckedRefCastAddrInst() {
   CanType SourceType, TargetType;
   SILValue SourceAddr, DestAddr;
 
+  auto parseFormalTypeAndValue = [&](CanType &formalType,
+                                     SILValue &value) -> bool {
+    return (P.parseASTType(formalType) || P.parseVerbatim("in") ||
+            P.parseTypedValueRef(value, B));
+  };
+
   auto parseSourceAndDestAddress = [&]() {
-    return P.parseFormalTypeAndValue(SourceType, SourceAddr) ||
+    return parseFormalTypeAndValue(SourceType, SourceAddr) ||
            P.parseVerbatim("to") ||
-           P.parseFormalTypeAndValue(TargetType, DestAddr);
+           parseFormalTypeAndValue(TargetType, DestAddr);
   };
 
   if (parseSourceAndDestAddress() || P.parseSILDebugLocation(InstLoc, B))
@@ -280,10 +286,16 @@ bool SILInstructionParserVisitor::visitUnconditionalCheckedCastAddrInst() {
   CanType SourceType, TargetType;
   SILValue SourceAddr, DestAddr;
 
+  auto parseFormalTypeAndValue = [&](CanType &formalType,
+                                     SILValue &value) -> bool {
+    return (P.parseASTType(formalType) || P.parseVerbatim("in") ||
+            P.parseTypedValueRef(value, B));
+  };
+
   auto parseSourceAndDestAddress = [&]() {
-    return P.parseFormalTypeAndValue(SourceType, SourceAddr) ||
+    return parseFormalTypeAndValue(SourceType, SourceAddr) ||
            P.parseVerbatim("to") ||
-           P.parseFormalTypeAndValue(TargetType, DestAddr);
+           parseFormalTypeAndValue(TargetType, DestAddr);
   };
 
   if (parseSourceAndDestAddress() || P.parseSILDebugLocation(InstLoc, B))
@@ -311,10 +323,10 @@ bool SILInstructionParserVisitor::visitUnconditionalCheckedCastInst() {
     return true;
 
   auto opaque = Lowering::AbstractionPattern::getOpaque();
+  auto &F = B.getFunction();
   ResultVal = B.createUnconditionalCheckedCast(
-      InstLoc, options, Val,
-      B.getFunction()->getLoweredType(opaque, TargetType),
-      TargetType, forwardingOwnership);
+      InstLoc, options, Val, F.getLoweredType(opaque, TargetType), TargetType,
+      forwardingOwnership);
   return false; // Success
 }
 
@@ -349,10 +361,10 @@ bool SILInstructionParserVisitor::visitCheckedCastBranchInst() {
     return true;
 
   auto opaque = Lowering::AbstractionPattern::getOpaque();
-  auto *F = B.getFunction();
+  auto &F = B.getFunction();
   ResultVal = B.createCheckedCastBranch(
       InstLoc, isExact, options, Val, SourceType,
-      F->getLoweredType(opaque, TargetType), TargetType,
+      F.getLoweredType(opaque, TargetType), TargetType,
       P.getBBForReference(SuccessBBName, SuccessBBLoc),
       P.getBBForReference(FailureBBName, FailureBBLoc),
       forwardingOwnership);
@@ -373,9 +385,8 @@ bool SILInstructionParserVisitor::visitMarkUninitializedInst() {
   SourceLoc KindLoc = P.P.Tok.getLoc();
   if (P.P.consumeIf(tok::kw_var))
     KindId = P.P.Context.getIdentifier("var");
-  else if (P.parseIdentifier(KindId, KindLoc,
-                             /*diagnoseDollarPrefix*/ false,
-                             diag::expected_tok_in_sil_instr, "kind"))
+  else if (P.parseSILIdentifier(KindId, KindLoc,
+                                diag::expected_tok_in_sil_instr, "kind"))
     return true;
 
   if (P.P.parseToken(tok::r_square, diag::expected_tok_in_sil_instr, "]"))
@@ -442,49 +453,51 @@ bool SILInstructionParserVisitor::visitMarkFunctionEscapeInst() {
 // Access instructions
 //===----------------------------------------------------------------------===//
 
-static bool parseAccessInstruction(SILInstructionParserVisitor &V,
-                                   SILInstructionKind opcode) {
-  SILParser &P = V.P;
-  SILBuilder &B = V.B;
-  SILLocation InstLoc = RegularLocation(V.OpcodeLoc, /*implicit*/ false);
+static bool parseAccessInstruction(SILParser &Parser, SILBuilder &Builder,
+                                   SILInstructionKind opcode,
+                                   SourceLoc opcodeLoc, StringRef opcodeName,
+                                   SILInstruction *&ResultVal) {
+  SILLocation InstLoc = RegularLocation(opcodeLoc, /*implicit*/ false);
 
-  ParsedEnum<SILAccessKind> kind;
-  ParsedEnum<SILAccessEnforcement> enforcement;
-  ParsedEnum<bool> aborting;
-  ParsedEnum<bool> noNestedConflict;
-  ParsedEnum<bool> fromBuiltin;
+  SILParser::ParsedEnum<SILAccessKind> kind;
+  SILParser::ParsedEnum<SILAccessEnforcement> enforcement;
+  SILParser::ParsedEnum<bool> aborting;
+  SILParser::ParsedEnum<bool> noNestedConflict;
+  SILParser::ParsedEnum<bool> fromBuiltin;
 
   bool isBeginAccess = (opcode == SILInstructionKind::BeginAccessInst ||
                         opcode == SILInstructionKind::BeginUnpairedAccessInst);
   bool wantsEnforcement =
       (isBeginAccess || opcode == SILInstructionKind::EndUnpairedAccessInst);
 
-  while (P.P.consumeIf(tok::l_square)) {
+  while (Parser.P.consumeIf(tok::l_square)) {
     Identifier ident;
     SourceLoc identLoc;
-    if (P.parseSILIdentifier(ident, identLoc,
-                             diag::expected_in_attribute_list)) {
-      if (P.P.consumeIf(tok::r_square))
+    if (Parser.parseSILIdentifier(ident, identLoc,
+                                  diag::expected_in_attribute_list)) {
+      if (Parser.P.consumeIf(tok::r_square))
         continue;
       return true;
     }
     StringRef attr = ident.str();
 
     auto setEnforcement = [&](SILAccessEnforcement value) {
-      P.maybeSetEnum(wantsEnforcement, enforcement, value, attr, identLoc);
+      Parser.maybeSetEnum(wantsEnforcement, enforcement, value, attr,
+                          identLoc);
     };
     auto setKind = [&](SILAccessKind value) {
-      P.maybeSetEnum(isBeginAccess, kind, value, attr, identLoc);
+      Parser.maybeSetEnum(isBeginAccess, kind, value, attr, identLoc);
     };
     auto setAborting = [&](bool value) {
-      P.maybeSetEnum(!isBeginAccess, aborting, value, attr, identLoc);
+      Parser.maybeSetEnum(!isBeginAccess, aborting, value, attr, identLoc);
     };
     auto setNoNestedConflict = [&](bool value) {
-      P.maybeSetEnum(isBeginAccess, noNestedConflict, value, attr, identLoc);
+      Parser.maybeSetEnum(isBeginAccess, noNestedConflict, value, attr,
+                          identLoc);
     };
     auto setFromBuiltin = [&](bool value) {
-      P.maybeSetEnum(opcode != SILInstructionKind::EndAccessInst, fromBuiltin,
-                     value, attr, identLoc);
+      Parser.maybeSetEnum(opcode != SILInstructionKind::EndAccessInst,
+                          fromBuiltin, value, attr, identLoc);
     };
 
     if (attr == "unknown") {
@@ -512,21 +525,21 @@ static bool parseAccessInstruction(SILInstructionParserVisitor &V,
     } else if (attr == "builtin") {
       setFromBuiltin(true);
     } else {
-      P.P.diagnose(identLoc, diag::unknown_attr_name, attr);
+      Parser.P.diagnose(identLoc, diag::unknown_attr_name, attr);
     }
 
-    if (!P.P.consumeIf(tok::r_square))
+    if (!Parser.P.consumeIf(tok::r_square))
       return true;
   }
 
   if (isBeginAccess && !kind.isSet()) {
-    P.P.diagnose(V.OpcodeLoc, diag::sil_expected_access_kind, V.OpcodeName);
+    Parser.P.diagnose(opcodeLoc, diag::sil_expected_access_kind, opcodeName);
     kind.Value = SILAccessKind::Read;
   }
 
   if (wantsEnforcement && !enforcement.isSet()) {
-    P.P.diagnose(V.OpcodeLoc, diag::sil_expected_access_enforcement,
-                 V.OpcodeName);
+    Parser.P.diagnose(opcodeLoc, diag::sil_expected_access_enforcement,
+                      opcodeName);
     enforcement.Value = SILAccessEnforcement::Unsafe;
   }
 
@@ -541,42 +554,44 @@ static bool parseAccessInstruction(SILInstructionParserVisitor &V,
 
   SILValue addrVal;
   SourceLoc addrLoc;
-  if (P.parseTypedValueRef(addrVal, addrLoc, B))
+  if (Parser.parseTypedValueRef(addrVal, addrLoc, Builder))
     return true;
 
   SILValue bufferVal;
   SourceLoc bufferLoc;
   if (opcode == SILInstructionKind::BeginUnpairedAccessInst &&
-      (P.P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-       P.parseTypedValueRef(bufferVal, bufferLoc, B)))
+      (Parser.P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
+       Parser.parseTypedValueRef(bufferVal, bufferLoc, Builder)))
     return true;
 
-  if (P.parseSILDebugLocation(InstLoc, B))
+  if (Parser.parseSILDebugLocation(InstLoc, Builder))
     return true;
 
   if (!addrVal->getType().isAddress()) {
-    P.P.diagnose(addrLoc, diag::sil_operand_not_address,
-                 "operand", V.OpcodeName);
+    Parser.P.diagnose(addrLoc, diag::sil_operand_not_address,
+                      "operand", opcodeName);
     return true;
   }
 
   switch (opcode) {
   case SILInstructionKind::BeginAccessInst:
-    V.ResultVal = B.createBeginAccess(InstLoc, addrVal, *kind, *enforcement,
-                                      *noNestedConflict, *fromBuiltin);
+    ResultVal = Builder.createBeginAccess(InstLoc, addrVal, *kind,
+                                          *enforcement, *noNestedConflict,
+                                          *fromBuiltin);
     break;
   case SILInstructionKind::BeginUnpairedAccessInst:
-    V.ResultVal = B.createBeginUnpairedAccess(InstLoc, addrVal, bufferVal,
-                                              *kind, *enforcement,
-                                              *noNestedConflict,
-                                              *fromBuiltin);
+    ResultVal = Builder.createBeginUnpairedAccess(InstLoc, addrVal, bufferVal,
+                                                  *kind, *enforcement,
+                                                  *noNestedConflict,
+                                                  *fromBuiltin);
     break;
   case SILInstructionKind::EndAccessInst:
-    V.ResultVal = B.createEndAccess(InstLoc, addrVal, *aborting);
+    ResultVal = Builder.createEndAccess(InstLoc, addrVal, *aborting);
     break;
   case SILInstructionKind::EndUnpairedAccessInst:
-    V.ResultVal = B.createEndUnpairedAccess(InstLoc, addrVal, *enforcement,
-                                            *aborting, *fromBuiltin);
+    ResultVal = Builder.createEndUnpairedAccess(InstLoc, addrVal,
+                                                *enforcement, *aborting,
+                                                *fromBuiltin);
     break;
   default:
     llvm_unreachable("unexpected access instruction");
@@ -585,21 +600,25 @@ static bool parseAccessInstruction(SILInstructionParserVisitor &V,
 }
 
 bool SILInstructionParserVisitor::visitBeginAccessInst() {
-  return parseAccessInstruction(*this, SILInstructionKind::BeginAccessInst);
+  return parseAccessInstruction(P, B, SILInstructionKind::BeginAccessInst,
+                                OpcodeLoc, OpcodeName, ResultVal);
 }
 
 bool SILInstructionParserVisitor::visitBeginUnpairedAccessInst() {
-  return parseAccessInstruction(*this,
-                                SILInstructionKind::BeginUnpairedAccessInst);
+  return parseAccessInstruction(P, B,
+                                SILInstructionKind::BeginUnpairedAccessInst,
+                                OpcodeLoc, OpcodeName, ResultVal);
 }
 
 bool SILInstructionParserVisitor::visitEndAccessInst() {
-  return parseAccessInstruction(*this, SILInstructionKind::EndAccessInst);
+  return parseAccessInstruction(P, B, SILInstructionKind::EndAccessInst,
+                                OpcodeLoc, OpcodeName, ResultVal);
 }
 
 bool SILInstructionParserVisitor::visitEndUnpairedAccessInst() {
-  return parseAccessInstruction(*this,
-                                SILInstructionKind::EndUnpairedAccessInst);
+  return parseAccessInstruction(P, B,
+                                SILInstructionKind::EndUnpairedAccessInst,
+                                OpcodeLoc, OpcodeName, ResultVal);
 }
 
 #endif // PARSE_SIL_INSTRUCTION_VISITOR_PHASE315_OPENPACK_INC

@@ -25,12 +25,8 @@
 // Phase 1: AllocBoxInst (1 instruction) - Infrastructure validation
 PARSE_SIL_VISITOR_ENTRY(AllocBoxInst)
 
-// Phase 2: Basic instructions (14 instructions total)
-// Apply-family (6 instructions)
-PARSE_SIL_VISITOR_ENTRY(ApplyInst)
-PARSE_SIL_VISITOR_ENTRY(BeginApplyInst)
-PARSE_SIL_VISITOR_ENTRY(PartialApplyInst)
-PARSE_SIL_VISITOR_ENTRY(TryApplyInst)
+// Phase 2: Basic instructions (10 instructions total)
+// Apply-family (2 instructions)
 PARSE_SIL_VISITOR_ENTRY(AbortApplyInst)
 PARSE_SIL_VISITOR_ENTRY(EndApplyInst)
 

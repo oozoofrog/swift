@@ -396,7 +396,7 @@ bool SILInstructionParserVisitor::visitSpecifyTestInst() {
 
   auto *tsi = B.createSpecifyTestInst(InstLoc, ArgumentsSpecification);
   SmallVector<StringRef, 4> components;
-  test::getTestSpecificationComponents(ArgumentsSpecification, components);
+  swift::test::getTestSpecificationComponents(ArgumentsSpecification, components);
   for (auto component : components) {
     auto offset = 0;
     size_t nameStart = StringRef::npos;
@@ -442,8 +442,8 @@ bool SILInstructionParserVisitor::visitKeyPathInst() {
   StringRef objcString;
   SmallVector<SILType, 4> operandTypes;
 
-  patternParams = P.maybeParseGenericParams().getPtrOrNull();
-  patternSig = handleSILGenericParams(patternParams, &P.SF);
+  patternParams = P.P.maybeParseGenericParams().getPtrOrNull();
+  patternSig = handleSILGenericParams(patternParams, &P.P.SF);
 
   if (P.P.parseToken(tok::l_paren, diag::expected_tok_in_sil_instr, "("))
     return true;

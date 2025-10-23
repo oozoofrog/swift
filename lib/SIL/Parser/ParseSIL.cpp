@@ -2896,20 +2896,9 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
   case SILInstructionKind::DynamicPackIndexInst:
     llvm_unreachable(
         "DynamicPackIndexInst is handled by SILInstructionParserVisitor");
-  case SILInstructionKind::PackPackIndexInst: {
-    unsigned componentIndex = 0;
-    CanPackType packType;
-    if (parseInteger(componentIndex, diag::expected_sil_constant) ||
-        P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-        parseValueRef(Val, SILType::getPackIndexType(P.Context), InstLoc, B) ||
-        parseVerbatim("of") ||
-        P.parseToken(tok::sil_dollar, diag::expected_tok_in_sil_instr, "$") ||
-        parseASTPackType(packType))
-      return true;
-    ResultVal =
-        B.createPackPackIndex(InstLoc, componentIndex, Val, packType);
-    break;
-  }
+  case SILInstructionKind::PackPackIndexInst:
+    llvm_unreachable(
+        "PackPackIndexInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::ScalarPackIndexInst:
     llvm_unreachable(
         "ScalarPackIndexInst is handled by SILInstructionParserVisitor");
@@ -3208,55 +3197,8 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
 
   case SILInstructionKind::StoreInst:
     llvm_unreachable("StoreInst is handled by SILInstructionParserVisitor");
-  case SILInstructionKind::AssignInst: {
-    UnresolvedValueName From;
-    SourceLoc ToLoc, AddrLoc;
-    Identifier ToToken;
-    SILValue AddrVal;
-    std::optional<AssignOwnershipQualifier> AssignQualifier;
-
-    if (parseValueName(From) ||
-        parseSILIdentifier(ToToken, ToLoc, diag::expected_tok_in_sil_instr,
-                           "to"))
-      return true;
-
-    auto parseAssignOwnership = [](StringRef Str) {
-      return llvm::StringSwitch<std::optional<AssignOwnershipQualifier>>(Str)
-          .Case("reassign", AssignOwnershipQualifier::Reassign)
-          .Case("reinit", AssignOwnershipQualifier::Reinit)
-          .Case("init", AssignOwnershipQualifier::Init)
-          .Default(std::nullopt);
-    };
-    if (parseSILQualifier<AssignOwnershipQualifier>(AssignQualifier,
-                                                     parseAssignOwnership))
-      return true;
-
-    if (parseTypedValueRef(AddrVal, AddrLoc, B) ||
-        parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    if (ToToken.str() != "to") {
-      P.diagnose(ToLoc, diag::expected_tok_in_sil_instr, "to");
-      return true;
-    }
-
-    if (!AddrVal->getType().isAddress()) {
-      P.diagnose(AddrLoc, diag::sil_operand_not_address, "destination",
-                 OpcodeName);
-      return true;
-    }
-
-    SILType ValType = AddrVal->getType().getObjectType();
-
-    if (!AssignQualifier)
-      AssignQualifier = AssignOwnershipQualifier::Unknown;
-
-    ResultVal =
-        B.createAssign(InstLoc, getLocalValue(From, ValType, InstLoc, B),
-                       AddrVal, AssignQualifier.value());
-
-    break;
-  }
+  case SILInstructionKind::AssignInst:
+    llvm_unreachable("AssignInst is handled by SILInstructionParserVisitor");
 
   case SILInstructionKind::MoveOnlyWrapperToCopyableAddrInst:
     llvm_unreachable("MoveOnlyWrapperToCopyableAddrInst is handled by SILInstructionParserVisitor");
@@ -3287,35 +3229,9 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
   case SILInstructionKind::CopyableToMoveOnlyWrapperAddrInst:
     llvm_unreachable("CopyableToMoveOnlyWrapperAddrInst is handled by SILInstructionParserVisitor");
 
-  case SILInstructionKind::AssignOrInitInst: {
-    ValueDecl *Prop;
-    SILValue Self, Src, InitFn, SetFn;
-    AssignOrInitInst::Mode Mode;
-    llvm::SmallVector<unsigned, 2> assignments;
-
-    if (parseAssignOrInitMode(Mode, *this) ||
-        parseAssignOrInitAssignments(assignments, *this) ||
-        parseSILDottedPath(Prop) ||
-        P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-        parseVerbatim("self") || parseTypedValueRef(Self, B) ||
-        P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-        parseVerbatim("value") || parseTypedValueRef(Src, B) ||
-        P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-        parseVerbatim("init") || parseTypedValueRef(InitFn, B) ||
-        P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-        parseVerbatim("set") || parseTypedValueRef(SetFn, B) ||
-        parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    auto *AI = B.createAssignOrInit(InstLoc, cast<VarDecl>(Prop), Self, Src,
-                                    InitFn, SetFn, Mode);
-
-    for (unsigned index : assignments)
-      AI->markAsInitialized(index);
-
-    ResultVal = AI;
-    break;
-  }
+  case SILInstructionKind::AssignOrInitInst:
+    llvm_unreachable(
+        "AssignOrInitInst is handled by SILInstructionParserVisitor");
 
   case SILInstructionKind::BeginAccessInst:
     llvm_unreachable("BeginAccessInst is handled by SILInstructionParserVisitor");

@@ -2871,78 +2871,28 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     break;
 
   case SILInstructionKind::OpenExistentialBoxInst:
-    if (parseTypedValueRef(Val, B) || parseVerbatim("to") || parseSILType(Ty) ||
-        parseSILDebugLocation(InstLoc, B))
-      return true;
+    llvm_unreachable(
+        "OpenExistentialBoxInst is handled by SILInstructionParserVisitor");
 
-    ResultVal = B.createOpenExistentialBox(InstLoc, Val, Ty);
-    break;
-
-  case SILInstructionKind::OpenExistentialBoxValueInst: {
-    if (parseTypedValueRef(Val, B) || parseVerbatim("to") || parseSILType(Ty))
-      return true;
-
-    ValueOwnershipKind forwardingOwnership = Val->getOwnershipKind();
-    if (parseForwardingOwnershipKind(forwardingOwnership)
-        || parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal =
-        B.createOpenExistentialBoxValue(InstLoc, Val, Ty, forwardingOwnership);
-    break;
-  }
+  case SILInstructionKind::OpenExistentialBoxValueInst:
+    llvm_unreachable("OpenExistentialBoxValueInst is handled by "
+                     "SILInstructionParserVisitor");
 
   case SILInstructionKind::OpenExistentialMetatypeInst:
-    if (parseTypedValueRef(Val, B) || parseVerbatim("to") || parseSILType(Ty) ||
-        parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createOpenExistentialMetatype(InstLoc, Val, Ty);
-    break;
+    llvm_unreachable("OpenExistentialMetatypeInst is handled by "
+                     "SILInstructionParserVisitor");
 
-  case SILInstructionKind::OpenExistentialRefInst: {
-    if (parseTypedValueRef(Val, B) || parseVerbatim("to") || parseSILType(Ty))
-      return true;
+  case SILInstructionKind::OpenExistentialRefInst:
+    llvm_unreachable(
+        "OpenExistentialRefInst is handled by SILInstructionParserVisitor");
 
-    ValueOwnershipKind forwardingOwnership = Val->getOwnershipKind();
-    if (parseForwardingOwnershipKind(forwardingOwnership)
-        || parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    ResultVal =
-        B.createOpenExistentialRef(InstLoc, Val, Ty, forwardingOwnership);
-    break;
-  }
-
-  case SILInstructionKind::OpenExistentialValueInst: {
-    if (parseTypedValueRef(Val, B) || parseVerbatim("to") || parseSILType(Ty))
-      return true;
-
-    ValueOwnershipKind forwardingOwnership = Val->getOwnershipKind();
-    if (parseForwardingOwnershipKind(forwardingOwnership)
-        || parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    ResultVal =
-        B.createOpenExistentialValue(InstLoc, Val, Ty, forwardingOwnership);
-    break;
-  }
-  case SILInstructionKind::TypeValueInst: {
-    CanType paramType;
-    if (parseSILType(Ty) ||
-        parseVerbatim("for") ||
-        parseASTTypeOrValue(paramType))
-      return true;
-
-    ResultVal = B.createTypeValue(InstLoc, Ty, paramType);
-    break;
-  }
-  case SILInstructionKind::PackLengthInst: {
-    CanPackType packType;
-    if (P.parseToken(tok::sil_dollar, diag::expected_tok_in_sil_instr, "$") ||
-        parseASTPackType(packType))
-      return true;
-    ResultVal = B.createPackLength(InstLoc, packType);
-    break;
-  }
+  case SILInstructionKind::OpenExistentialValueInst:
+    llvm_unreachable(
+        "OpenExistentialValueInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::TypeValueInst:
+    llvm_unreachable("TypeValueInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::PackLengthInst:
+    llvm_unreachable("PackLengthInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::DynamicPackIndexInst:
     llvm_unreachable(
         "DynamicPackIndexInst is handled by SILInstructionParserVisitor");
@@ -2960,132 +2910,18 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
         B.createPackPackIndex(InstLoc, componentIndex, Val, packType);
     break;
   }
-  case SILInstructionKind::ScalarPackIndexInst: {
-    unsigned componentIndex = 0;
-    CanPackType packType;
-    if (parseInteger(componentIndex, diag::expected_sil_constant) ||
-        parseVerbatim("of") ||
-        P.parseToken(tok::sil_dollar, diag::expected_tok_in_sil_instr, "$") ||
-        parseASTPackType(packType))
-      return true;
-    ResultVal =
-        B.createScalarPackIndex(InstLoc, componentIndex, packType);
-    break;
-  }
-  case SILInstructionKind::OpenPackElementInst: {
-    if (parseValueRef(Val, SILType::getPackIndexType(P.Context), InstLoc, B) ||
-        parseVerbatim("of"))
-      return true;
-
-    // Parse the generic parameters for the environment being opened.
-    // This does not include the opened generic parameters.
-    GenericParamList *openedGenerics; {
-      if (!P.startsWithLess(P.Tok)) {
-        P.diagnose(P.Tok, diag::expected_generic_signature);
-        return true;
-      }
-      openedGenerics = P.maybeParseGenericParams().getPtrOrNull();
-      if (!openedGenerics)
-        return true;
-    }
-
-    // Resolve a generic signature from those parameters.
-    auto openedGenericsSig = handleSILGenericParams(openedGenerics, &P.SF);
-    if (!openedGenericsSig) return true;
-
-    // Parse the substitutions for the environment being opened.
-    SubstitutionMap openedSubMap; {
-      if (parseVerbatim("at"))
-        return true;
-
-      // The substitutions are not contextual within the signature
-      // we just parsed.
-      SmallVector<ParsedSubstitution> parsedOpenedSubs;
-      if (parseSubstitutions(parsedOpenedSubs))
-        return true;
-
-      // We do need those substitutions to resolve a SubstitutionMap,
-      // though.
-      openedSubMap =
-        getApplySubstitutionsFromParsed(*this, openedGenericsSig,
-                                        parsedOpenedSubs);
-      if (!openedSubMap)
-        return true;
-    }
-
-    // Parse the shape class that should be opened.  This is a contextual
-    // type within the signature we just parsed.
-    CanType shapeClass;
-    SourceLoc shapeClassLoc;
-    if (!P.consumeIf(tok::comma) ||
-        parseVerbatim("shape") ||
-        P.parseToken(tok::sil_dollar,
-                     diag::expected_tok_in_sil_instr, "$") ||
-        parseASTType(shapeClass, shapeClassLoc, openedGenericsSig,
-                     openedGenerics, /*wantContextualType*/ true))
-      return true;
-
-    // Map it out of context.  It should be a type pack parameter.
-    shapeClass = shapeClass->mapTypeOutOfContext()->getCanonicalType();
-    auto shapeParam = dyn_cast<GenericTypeParamType>(shapeClass);
-    if (!shapeParam || !shapeParam->isParameterPack()) {
-      P.diagnose(shapeClassLoc, diag::opened_shape_class_not_pack_param);
-      return true;
-    }
-
-    // Parse the UUID for the opening.
-    UUID uuid;
-    if (!P.consumeIf(tok::comma) ||
-        parseVerbatim("uuid") ||
-        P.parseUUIDString(uuid, diag::sil_expected_uuid))
-      return true;
-
-    // Build the opened-element signature, which adds the parameters for
-    // the opened elements to the signature we parsed above.
-    auto openedElementSig =
-      P.Context.getOpenedElementSignature(
-        openedGenericsSig.getCanonicalSignature(), shapeParam);
-
-    auto openedEnv = GenericEnvironment::forOpenedElement(openedElementSig,
-                         uuid, shapeParam, openedSubMap);
-
-    auto openInst = B.createOpenPackElement(InstLoc, Val, openedEnv);
-    ResultVal = openInst;
-
-    auto &entry = OpenedPackElements[uuid];
-    if (entry.DefinitionPoint.isValid()) {
-      P.diagnose(OpcodeLoc, diag::multiple_open_pack_element);
-      P.diagnose(entry.DefinitionPoint, diag::sil_previous_instruction);
-    } else {
-      entry.DefinitionPoint = OpcodeLoc;
-      entry.Params = openedGenerics;
-      entry.Environment = openedEnv;
-    }
-    break;
-  }
-  case SILInstructionKind::PackElementGetInst: {
-    SILValue index, pack;
-    SILType elementType;
-    if (parseValueRef(index, SILType::getPackIndexType(P.Context), InstLoc, B) ||
-        parseVerbatim("of") ||
-        parseTypedValueRef(pack, B) ||
-        parseVerbatim("as") ||
-        parseSILType(elementType))
-      return true;
-    ResultVal = B.createPackElementGet(InstLoc, index, pack, elementType);
-    break;
-  }
-  case SILInstructionKind::PackElementSetInst: {
-    SILValue value, index, pack;
-    if (parseTypedValueRef(value, B) ||
-        parseVerbatim("into") ||
-        parseValueRef(index, SILType::getPackIndexType(P.Context), InstLoc, B) ||
-        parseVerbatim("of") ||
-        parseTypedValueRef(pack, B))
-      return true;
-    ResultVal = B.createPackElementSet(InstLoc, value, index, pack);
-    break;
-  }
+  case SILInstructionKind::ScalarPackIndexInst:
+    llvm_unreachable(
+        "ScalarPackIndexInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::OpenPackElementInst:
+    llvm_unreachable(
+        "OpenPackElementInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::PackElementGetInst:
+    llvm_unreachable(
+        "PackElementGetInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::PackElementSetInst:
+    llvm_unreachable(
+        "PackElementSetInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::TuplePackElementAddrInst:
     llvm_unreachable("TuplePackElementAddrInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::TuplePackExtractInst:
@@ -3349,134 +3185,26 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     break;
   }
   case SILInstructionKind::UncheckedRefCastAddrInst:
-    if (parseSourceAndDestAddress() || parseSILDebugLocation(InstLoc, B))
-      return true;
+    llvm_unreachable(
+        "UncheckedRefCastAddrInst is handled by SILInstructionParserVisitor");
 
-    ResultVal = B.createUncheckedRefCastAddr(InstLoc, SourceAddr, SourceType,
-                                             DestAddr, TargetType);
-    break;
+  case SILInstructionKind::UnconditionalCheckedCastAddrInst:
+    llvm_unreachable("UnconditionalCheckedCastAddrInst is handled by "
+                     "SILInstructionParserVisitor");
+  case SILInstructionKind::UnconditionalCheckedCastInst:
+    llvm_unreachable("UnconditionalCheckedCastInst is handled by "
+                     "SILInstructionParserVisitor");
 
-  case SILInstructionKind::UnconditionalCheckedCastAddrInst: {
-    CheckedCastInstOptions options = parseCheckedCastInstOptions(nullptr);
+  case SILInstructionKind::CheckedCastBranchInst:
+    llvm_unreachable("CheckedCastBranchInst is handled by "
+                     "SILInstructionParserVisitor");
+  case SILInstructionKind::MarkUninitializedInst:
+    llvm_unreachable("MarkUninitializedInst is handled by "
+                     "SILInstructionParserVisitor");
 
-    if (parseSourceAndDestAddress() || parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    ResultVal = B.createUnconditionalCheckedCastAddr(
-        InstLoc, options, SourceAddr, SourceType,
-        DestAddr, TargetType);
-    break;
-  }
-  case SILInstructionKind::UnconditionalCheckedCastInst: {
-    CheckedCastInstOptions options = parseCheckedCastInstOptions(nullptr);
-
-    if (parseTypedValueRef(Val, B) || parseVerbatim("to") ||
-        parseASTType(TargetType))
-      return true;
-
-    ValueOwnershipKind forwardingOwnership = Val->getOwnershipKind();
-    if (parseForwardingOwnershipKind(forwardingOwnership)
-        || parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    auto opaque = Lowering::AbstractionPattern::getOpaque();
-    ResultVal = B.createUnconditionalCheckedCast(
-        InstLoc, options, Val,
-        F->getLoweredType(opaque, TargetType), TargetType,
-        forwardingOwnership);
-    break;
-  }
-
-  case SILInstructionKind::CheckedCastBranchInst: {
-    bool isExact = false;
-    CheckedCastInstOptions options = parseCheckedCastInstOptions(&isExact);
-
-    if (parseASTType(SourceType) || parseVerbatim("in"))
-      return true;
-
-    if (parseTypedValueRef(Val, B) || parseVerbatim("to") ||
-        parseASTType(TargetType) || parseConditionalBranchDestinations())
-      return true;
-
-    ValueOwnershipKind forwardingOwnership = Val->getOwnershipKind();
-    if (parseForwardingOwnershipKind(forwardingOwnership)
-        || parseSILDebugLocation(InstLoc, B)) {
-      return true;
-    }
-
-    auto opaque = Lowering::AbstractionPattern::getOpaque();
-    ResultVal = B.createCheckedCastBranch(
-        InstLoc, isExact, options, Val, SourceType,
-        F->getLoweredType(opaque, TargetType), TargetType,
-        getBBForReference(SuccessBBName, SuccessBBLoc),
-        getBBForReference(FailureBBName, FailureBBLoc), forwardingOwnership);
-    break;
-  }
-  case SILInstructionKind::MarkUninitializedInst: {
-    if (P.parseToken(tok::l_square, diag::expected_tok_in_sil_instr, "["))
-      return true;
-
-    Identifier KindId;
-    SourceLoc KindLoc = P.Tok.getLoc();
-    if (P.consumeIf(tok::kw_var))
-      KindId = P.Context.getIdentifier("var");
-    else if (P.parseIdentifier(KindId, KindLoc, /*diagnoseDollarPrefix=*/false,
-                               diag::expected_tok_in_sil_instr, "kind"))
-      return true;
-
-    if (P.parseToken(tok::r_square, diag::expected_tok_in_sil_instr, "]"))
-      return true;
-
-    MarkUninitializedInst::Kind Kind;
-    if (KindId.str() == "var")
-      Kind = MarkUninitializedInst::Var;
-    else if (KindId.str() == "rootself")
-      Kind = MarkUninitializedInst::RootSelf;
-    else if (KindId.str() == "crossmodulerootself")
-      Kind = MarkUninitializedInst::CrossModuleRootSelf;
-    else if (KindId.str() == "derivedself")
-      Kind = MarkUninitializedInst::DerivedSelf;
-    else if (KindId.str() == "derivedselfonly")
-      Kind = MarkUninitializedInst::DerivedSelfOnly;
-    else if (KindId.str() == "delegatingself")
-      Kind = MarkUninitializedInst::DelegatingSelf;
-    else if (KindId.str() == "delegatingselfallocated")
-      Kind = MarkUninitializedInst::DelegatingSelfAllocated;
-    else if (KindId.str() == "out")
-      Kind = MarkUninitializedInst::Out;
-    else {
-      P.diagnose(KindLoc, diag::expected_tok_in_sil_instr,
-                 "var, rootself, crossmodulerootself, derivedself, "
-                 "derivedselfonly, delegatingself, or delegatingselfallocated");
-      return true;
-    }
-
-    if (parseTypedValueRef(Val, B))
-      return true;
-
-    ValueOwnershipKind forwardingOwnership = Val->getOwnershipKind();
-    if (parseForwardingOwnershipKind(forwardingOwnership)
-        || parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    ResultVal =
-        B.createMarkUninitialized(InstLoc, Val, Kind, forwardingOwnership);
-    break;
-  }
-
-  case SILInstructionKind::MarkFunctionEscapeInst: {
-    SmallVector<SILValue, 4> OpList;
-    do {
-      if (parseTypedValueRef(Val, B))
-        return true;
-      OpList.push_back(Val);
-    } while (!peekSILDebugLocation() && P.consumeIf(tok::comma));
-
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createMarkFunctionEscape(InstLoc, OpList);
-    break;
-  }
+  case SILInstructionKind::MarkFunctionEscapeInst:
+    llvm_unreachable("MarkFunctionEscapeInst is handled by "
+                     "SILInstructionParserVisitor");
 
   case SILInstructionKind::StoreInst:
     llvm_unreachable("StoreInst is handled by SILInstructionParserVisitor");
@@ -3590,137 +3318,15 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
   }
 
   case SILInstructionKind::BeginAccessInst:
+    llvm_unreachable("BeginAccessInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::BeginUnpairedAccessInst:
+    llvm_unreachable("BeginUnpairedAccessInst is handled by "
+                     "SILInstructionParserVisitor");
   case SILInstructionKind::EndAccessInst:
-  case SILInstructionKind::EndUnpairedAccessInst: {
-    ParsedEnum<SILAccessKind> kind;
-    ParsedEnum<SILAccessEnforcement> enforcement;
-    ParsedEnum<bool> aborting;
-    ParsedEnum<bool> noNestedConflict;
-    ParsedEnum<bool> fromBuiltin;
-
-    bool isBeginAccess =
-        (Opcode == SILInstructionKind::BeginAccessInst ||
-         Opcode == SILInstructionKind::BeginUnpairedAccessInst);
-    bool wantsEnforcement =
-        (isBeginAccess || Opcode == SILInstructionKind::EndUnpairedAccessInst);
-
-    while (P.consumeIf(tok::l_square)) {
-      Identifier ident;
-      SourceLoc identLoc;
-      if (parseSILIdentifier(ident, identLoc,
-                             diag::expected_in_attribute_list)) {
-        if (P.consumeIf(tok::r_square)) {
-          continue;
-        } else {
-          return true;
-        }
-      }
-      StringRef attr = ident.str();
-
-      auto setEnforcement = [&](SILAccessEnforcement value) {
-        maybeSetEnum(wantsEnforcement, enforcement, value, attr, identLoc);
-      };
-      auto setKind = [&](SILAccessKind value) {
-        maybeSetEnum(isBeginAccess, kind, value, attr, identLoc);
-      };
-      auto setAborting = [&](bool value) {
-        maybeSetEnum(!isBeginAccess, aborting, value, attr, identLoc);
-      };
-      auto setNoNestedConflict = [&](bool value) {
-        maybeSetEnum(isBeginAccess, noNestedConflict, value, attr, identLoc);
-      };
-      auto setFromBuiltin = [&](bool value) {
-        maybeSetEnum(Opcode != SILInstructionKind::EndAccessInst, fromBuiltin,
-                     value, attr, identLoc);
-      };
-
-      if (attr == "unknown") {
-        setEnforcement(SILAccessEnforcement::Unknown);
-      } else if (attr == "static") {
-        setEnforcement(SILAccessEnforcement::Static);
-      } else if (attr == "dynamic") {
-        setEnforcement(SILAccessEnforcement::Dynamic);
-      } else if (attr == "unsafe") {
-        setEnforcement(SILAccessEnforcement::Unsafe);
-      } else if (attr == "signed") {
-        setEnforcement(SILAccessEnforcement::Signed);
-      } else if (attr == "init") {
-        setKind(SILAccessKind::Init);
-      } else if (attr == "read") {
-        setKind(SILAccessKind::Read);
-      } else if (attr == "modify") {
-        setKind(SILAccessKind::Modify);
-      } else if (attr == "deinit") {
-        setKind(SILAccessKind::Deinit);
-      } else if (attr == "abort") {
-        setAborting(true);
-      } else if (attr == "no_nested_conflict") {
-        setNoNestedConflict(true);
-      } else if (attr == "builtin") {
-        setFromBuiltin(true);
-      } else {
-        P.diagnose(identLoc, diag::unknown_attr_name, attr);
-      }
-
-      if (!P.consumeIf(tok::r_square))
-        return true;
-    }
-
-    if (isBeginAccess && !kind.isSet()) {
-      P.diagnose(OpcodeLoc, diag::sil_expected_access_kind, OpcodeName);
-      kind.Value = SILAccessKind::Read;
-    }
-
-    if (wantsEnforcement && !enforcement.isSet()) {
-      P.diagnose(OpcodeLoc, diag::sil_expected_access_enforcement, OpcodeName);
-      enforcement.Value = SILAccessEnforcement::Unsafe;
-    }
-
-    if (!isBeginAccess && !aborting.isSet())
-      aborting.Value = false;
-
-    if (isBeginAccess && !noNestedConflict.isSet())
-      noNestedConflict.Value = false;
-
-    if (!fromBuiltin.isSet())
-      fromBuiltin.Value = false;
-
-    SILValue addrVal;
-    SourceLoc addrLoc;
-    if (parseTypedValueRef(addrVal, addrLoc, B))
-      return true;
-
-    SILValue bufferVal;
-    SourceLoc bufferLoc;
-    if (Opcode == SILInstructionKind::BeginUnpairedAccessInst &&
-        (P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",") ||
-         parseTypedValueRef(bufferVal, bufferLoc, B)))
-      return true;
-
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    if (!addrVal->getType().isAddress()) {
-      P.diagnose(addrLoc, diag::sil_operand_not_address, "operand", OpcodeName);
-      return true;
-    }
-
-    if (Opcode == SILInstructionKind::BeginAccessInst) {
-      ResultVal = B.createBeginAccess(InstLoc, addrVal, *kind, *enforcement,
-                                      *noNestedConflict, *fromBuiltin);
-    } else if (Opcode == SILInstructionKind::EndAccessInst) {
-      ResultVal = B.createEndAccess(InstLoc, addrVal, *aborting);
-    } else if (Opcode == SILInstructionKind::BeginUnpairedAccessInst) {
-      ResultVal = B.createBeginUnpairedAccess(InstLoc, addrVal, bufferVal,
-                                              *kind, *enforcement,
-                                              *noNestedConflict, *fromBuiltin);
-    } else {
-      ResultVal = B.createEndUnpairedAccess(InstLoc, addrVal, *enforcement,
-                                            *aborting, *fromBuiltin);
-    }
-    break;
-  }
+    llvm_unreachable("EndAccessInst is handled by SILInstructionParserVisitor");
+  case SILInstructionKind::EndUnpairedAccessInst:
+    llvm_unreachable("EndUnpairedAccessInst is handled by "
+                     "SILInstructionParserVisitor");
 
   case SILInstructionKind::StoreBorrowInst:
     llvm_unreachable("StoreBorrowInst is handled by SILInstructionParserVisitor");

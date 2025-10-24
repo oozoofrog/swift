@@ -85,11 +85,11 @@ SILInstructionParserVisitor::dispatch(SILInstructionKind Opcode) {
   case SILInstructionKind::ID:                                                 \
     return visit##ID();
 #include "SILInstructionParser.def"
-  default:
-    // Instruction not yet migrated to visitor pattern
-    // Return std::nullopt to signal fallback to legacy switch
-    return std::nullopt;
   }
+
+  // Instruction not yet migrated to visitor pattern
+  // Return std::nullopt to signal fallback to legacy switch
+  return std::nullopt;
 }
 
 //===----------------------------------------------------------------------===//
@@ -119,3 +119,4 @@ SILInstructionParserVisitor::dispatch(SILInstructionKind Opcode) {
 #include "ParseSILInstructionVisitorImpl/Phase3_16_Assign.inc"
 #include "ParseSILInstructionVisitorImpl/Phase3_17_Apply.inc"
 #include "ParseSILInstructionVisitorImpl/Phase3_18_Switch.inc"
+#include "ParseSILInstructionVisitorImpl/Phase3_19_Remaining.inc"

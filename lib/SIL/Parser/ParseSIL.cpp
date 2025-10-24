@@ -553,20 +553,23 @@ static bool parseSILOptional(StringRef &parsedName, SourceLoc &parsedNameLoc,
   return true;
 }
 
-static bool parseSILOptional(StringRef &attrName, SourceLoc &attrLoc,
-                             SILParser &SP) {
+[[maybe_unused]] static bool parseSILOptional(StringRef &attrName,
+                                               SourceLoc &attrLoc,
+                                               SILParser &SP) {
   SILOptionalAttrValue parsedValue;
   SourceLoc parsedValueLoc;
   return parseSILOptional(attrName, attrLoc, parsedValue, parsedValueLoc, SP);
 }
 
-static bool parseSILOptional(StringRef &attrName, SILParser &SP) {
+[[maybe_unused]] static bool parseSILOptional(StringRef &attrName,
+                                               SILParser &SP) {
   SourceLoc attrLoc;
   return parseSILOptional(attrName, attrLoc, SP);
 }
 
 /// Parse an option attribute ('[' Expected ']')?
-static bool parseSILOptional(bool &Result, SILParser &SP, StringRef Expected) {
+[[maybe_unused]] static bool parseSILOptional(bool &Result, SILParser &SP,
+                                               StringRef Expected) {
   StringRef Optional;
   SourceLoc Loc;
   if (parseSILOptional(Optional, Loc, SP)) {
@@ -2564,60 +2567,13 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     return *handled;
 
   // Legacy switch statement (fallback for unmigrated instructions)
-  SmallVector<SILValue, 4> OpList;
-  SILValue Val;
-  SILType Ty;
-  SILLocation InstLoc = RegularLocation(OpcodeLoc, /*implicit*/ false);
+  [[maybe_unused]] SmallVector<SILValue, 4> OpList;
+  [[maybe_unused]] SILValue Val;
+  [[maybe_unused]] SILType Ty;
+  [[maybe_unused]] SILLocation InstLoc =
+      RegularLocation(OpcodeLoc, /*implicit*/ false);
   this->parsedComma = false;
 
-  auto parseFormalTypeAndValue = [&](CanType &formalType,
-                                     SILValue &value) -> bool {
-    return (parseASTType(formalType) || parseVerbatim("in")
-            || parseTypedValueRef(value, B));
-  };
-
-  OpenedExistentialAccess AccessKind;
-  auto parseOpenExistAddrKind = [&]() -> bool {
-    Identifier accessKindToken;
-    SourceLoc accessKindLoc;
-    if (parseSILIdentifier(accessKindToken, accessKindLoc,
-                           diag::expected_tok_in_sil_instr,
-                           "opened existential access kind")) {
-      return true;
-    }
-    auto kind =
-        llvm::StringSwitch<std::optional<OpenedExistentialAccess>>(
-            accessKindToken.str())
-            .Case("mutable_access", OpenedExistentialAccess::Mutable)
-            .Case("immutable_access", OpenedExistentialAccess::Immutable)
-            .Default(std::nullopt);
-
-    if (kind) {
-      AccessKind = kind.value();
-      return false;
-    }
-    P.diagnose(accessKindLoc, diag::expected_tok_in_sil_instr,
-               "opened existential access kind");
-    return true;
-  };
-
-  CanType SourceType, TargetType;
-  SILValue SourceAddr, DestAddr;
-  auto parseSourceAndDestAddress = [&] {
-    return parseFormalTypeAndValue(SourceType, SourceAddr) ||
-           parseVerbatim("to") || parseFormalTypeAndValue(TargetType, DestAddr);
-  };
-
-  Identifier SuccessBBName, FailureBBName;
-  SourceLoc SuccessBBLoc, FailureBBLoc;
-  auto parseConditionalBranchDestinations = [&] {
-    return P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",")
-           || parseSILIdentifier(SuccessBBName, SuccessBBLoc,
-                                 diag::expected_sil_block_name)
-           || P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ",")
-           || parseSILIdentifier(FailureBBName, FailureBBLoc,
-                                 diag::expected_sil_block_name);
-  };
 
   // Validate the opcode name, and do opcode-specific parsing logic based on the
   // opcode we find.
@@ -2635,43 +2591,9 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     llvm_unreachable("AbortApplyInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::EndApplyInst:
     llvm_unreachable("EndApplyInst is handled by SILInstructionParserVisitor");
-  case SILInstructionKind::IntegerLiteralInst: {
-    SILType Ty;
-    if (parseSILType(Ty) ||
-        P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ","))
-      return true;
-
-    bool Negative = false;
-    if (P.Tok.isAnyOperator() && P.Tok.getText() == "-") {
-      Negative = true;
-      P.consumeToken();
-    }
-    if (P.Tok.getKind() != tok::integer_literal) {
-      P.diagnose(P.Tok, diag::expected_tok_in_sil_instr, "integer");
-      return true;
-    }
-
-    auto intTy = Ty.getAs<AnyBuiltinIntegerType>();
-    if (!intTy) {
-      P.diagnose(P.Tok, diag::sil_integer_literal_not_integer_type);
-      return true;
-    }
-
-    StringRef text = prepareIntegerLiteralForParsing(P.Tok.getText());
-
-    bool error;
-    APInt value = intTy->getWidth().parse(text, 0, Negative, &error);
-    if (error) {
-      P.diagnose(P.Tok, diag::sil_integer_literal_not_well_formed, intTy);
-      return true;
-    }
-
-    P.consumeToken(tok::integer_literal);
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createIntegerLiteral(InstLoc, Ty, value);
+  case SILInstructionKind::IntegerLiteralInst:
+    llvm_unreachable("IntegerLiteralInst is handled by SILInstructionParserVisitor");
     break;
-  }
   case SILInstructionKind::FloatLiteralInst:
     llvm_unreachable("FloatLiteralInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::StringLiteralInst:
@@ -2684,28 +2606,9 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     llvm_unreachable("IncrementProfilerCounterInst is handled by "
                      "SILInstructionParserVisitor");
 
-  case SILInstructionKind::ProjectBoxInst: {
-    if (parseTypedValueRef(Val, B) ||
-        P.parseToken(tok::comma, diag::expected_tok_in_sil_instr, ","))
-      return true;
-
-    if (!P.Tok.is(tok::integer_literal)) {
-      P.diagnose(P.Tok, diag::expected_tok_in_sil_instr, "integer");
-      return true;
-    }
-
-    unsigned Index;
-    bool error = parseIntegerLiteral(P.Tok.getText(), 0, Index);
-    assert(!error && "project_box index did not parse as integer?!");
-    (void)error;
-
-    P.consumeToken(tok::integer_literal);
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    ResultVal = B.createProjectBox(InstLoc, Val, Index);
+  case SILInstructionKind::ProjectBoxInst:
+    llvm_unreachable("ProjectBoxInst is handled by SILInstructionParserVisitor");
     break;
-  }
 
   case SILInstructionKind::ProjectExistentialBoxInst:
     llvm_unreachable("ProjectExistentialBoxInst is handled by SILInstructionParserVisitor");
@@ -2718,91 +2621,15 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
   case SILInstructionKind::PreviousDynamicFunctionRefInst:
     llvm_unreachable("PreviousDynamicFunctionRefInst is handled by "
                      "SILInstructionParserVisitor");
-  case SILInstructionKind::BuiltinInst: {
-    if (P.Tok.getKind() != tok::string_literal) {
-      P.diagnose(P.Tok, diag::expected_tok_in_sil_instr, "builtin name");
-      return true;
-    }
-    StringRef Str = P.Tok.getText();
-    Identifier Id = P.Context.getIdentifier(Str.substr(1, Str.size() - 2));
-    P.consumeToken(tok::string_literal);
-
-    // Find the builtin in the Builtin module
-    SmallVector<ValueDecl *, 2> foundBuiltins;
-    P.Context.TheBuiltinModule->lookupMember(
-        foundBuiltins, P.Context.TheBuiltinModule, Id, Identifier());
-    if (foundBuiltins.empty()) {
-      P.diagnose(P.Tok, diag::expected_tok_in_sil_instr, "builtin name");
-      return true;
-    }
-    assert(foundBuiltins.size() == 1 && "ambiguous builtin name?!");
-
-    auto *builtinFunc = cast<FuncDecl>(foundBuiltins[0]);
-    GenericSignature genericSig = builtinFunc->getGenericSignature();
-
-    SmallVector<ParsedSubstitution, 4> parsedSubs;
-    SubstitutionMap subMap;
-    if (parseSubstitutions(parsedSubs))
-      return true;
-
-    if (!parsedSubs.empty()) {
-      if (!genericSig) {
-        P.diagnose(P.Tok, diag::sil_substitutions_on_non_polymorphic_type);
-        return true;
-      }
-      subMap = getApplySubstitutionsFromParsed(*this, genericSig, parsedSubs);
-      if (!subMap)
-        return true;
-    }
-
-    if (P.Tok.getKind() != tok::l_paren) {
-      P.diagnose(P.Tok, diag::expected_tok_in_sil_instr, "(");
-      return true;
-    }
-    P.consumeToken(tok::l_paren);
-
-    SmallVector<SILValue, 4> Args;
-    while (true) {
-      if (P.consumeIf(tok::r_paren))
-        break;
-
-      SILValue Val;
-      if (parseTypedValueRef(Val, B))
-        return true;
-      Args.push_back(Val);
-      if (P.consumeIf(tok::comma))
-        continue;
-      if (P.consumeIf(tok::r_paren))
-        break;
-      P.diagnose(P.Tok, diag::expected_tok_in_sil_instr, ")' or ',");
-      return true;
-    }
-
-    if (P.Tok.getKind() != tok::colon) {
-      P.diagnose(P.Tok, diag::expected_tok_in_sil_instr, ":");
-      return true;
-    }
-    P.consumeToken(tok::colon);
-
-    SILType ResultTy;
-    if (parseSILType(ResultTy))
-      return true;
-
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createBuiltin(InstLoc, Id, ResultTy, subMap, Args);
+  case SILInstructionKind::BuiltinInst:
+    llvm_unreachable("BuiltinInst is handled by SILInstructionParserVisitor");
     break;
-  }
   case SILInstructionKind::MergeIsolationRegionInst:
     llvm_unreachable("MergeIsolationRegionInst is handled by "
                      "SILInstructionParserVisitor");
   case SILInstructionKind::OpenExistentialAddrInst:
-    if (parseOpenExistAddrKind() || parseTypedValueRef(Val, B) ||
-        parseVerbatim("to") || parseSILType(Ty) ||
-        parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    ResultVal = B.createOpenExistentialAddr(InstLoc, Val, Ty, AccessKind);
+    llvm_unreachable("OpenExistentialAddrInst is handled by "
+                     "SILInstructionParserVisitor");
     break;
 
   case SILInstructionKind::OpenExistentialBoxInst:
@@ -2853,30 +2680,13 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
 
 #define UNARY_INSTRUCTION(ID)                                                  \
   case SILInstructionKind::ID##Inst:                                           \
-    if (parseTypedValueRef(Val, B))                                            \
-      return true;                                                             \
-    if (parseSILDebugLocation(InstLoc, B))                                     \
-      return true;                                                             \
-    ResultVal = B.create##ID(InstLoc, Val);                                    \
+    llvm_unreachable(#ID "Inst is handled by SILInstructionParserVisitor");    \
     break;
 
 #define REFCOUNTING_INSTRUCTION(ID)                                            \
-  case SILInstructionKind::ID##Inst: {                                         \
-    Atomicity atomicity = Atomicity::Atomic;                                   \
-    StringRef Optional;                                                        \
-    if (parseSILOptional(Optional, *this)) {                                   \
-      if (Optional == "nonatomic") {                                           \
-        atomicity = Atomicity::NonAtomic;                                      \
-      } else {                                                                 \
-        return true;                                                           \
-      }                                                                        \
-    }                                                                          \
-    if (parseTypedValueRef(Val, B))                                            \
-      return true;                                                             \
-    if (parseSILDebugLocation(InstLoc, B))                                     \
-      return true;                                                             \
-    ResultVal = B.create##ID(InstLoc, Val, atomicity);                         \
-  } break;
+  case SILInstructionKind::ID##Inst:                                           \
+    llvm_unreachable(#ID "Inst is handled by SILInstructionParserVisitor");    \
+    break;
 
     UNARY_INSTRUCTION(ClassifyBridgeObject)
     UNARY_INSTRUCTION(ValueToBridgeObject)
@@ -2986,20 +2796,10 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
 
 
 #define NEVER_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, ...)             \
-  case SILInstructionKind::Load##Name##Inst: {                                 \
-    bool isTake = false;                                                       \
-    SourceLoc addrLoc;                                                         \
-    if (parseSILOptional(isTake, *this, "take") ||                             \
-        parseTypedValueRef(Val, addrLoc, B) ||                                 \
-        parseSILDebugLocation(InstLoc, B))                                     \
-      return true;                                                             \
-    if (!Val->getType().is<Name##StorageType>()) {                             \
-      P.diagnose(addrLoc, diag::sil_operand_not_ref_storage_address, "source", \
-                 OpcodeName, ReferenceOwnership::Name);                        \
-    }                                                                          \
-    ResultVal = B.createLoad##Name(InstLoc, Val, IsTake_t(isTake));            \
-    break;                                                                     \
-  }
+  case SILInstructionKind::Load##Name##Inst:                                   \
+    llvm_unreachable("Load" #Name "Inst is handled by "                        \
+                     "SILInstructionParserVisitor");                           \
+    break;
 #include "swift/AST/ReferenceStorage.def"
 
   case SILInstructionKind::CopyBlockWithoutEscapingInst:
@@ -3071,43 +2871,10 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
   case SILInstructionKind::RefToBridgeObjectInst:
     llvm_unreachable("RefToBridgeObjectInst is handled by SILInstructionParserVisitor");
 
-  case SILInstructionKind::CheckedCastAddrBranchInst: {
-    CheckedCastInstOptions options = parseCheckedCastInstOptions(nullptr);
-
-    Identifier consumptionKindToken;
-    SourceLoc consumptionKindLoc;
-    if (parseSILIdentifier(consumptionKindToken, consumptionKindLoc,
-                           diag::expected_tok_in_sil_instr,
-                           "cast consumption kind")) {
-      return true;
-    }
-    // NOTE: BorrowAlways is not a supported cast kind for address types, so we
-    // purposely do not parse it here.
-    auto kind = llvm::StringSwitch<std::optional<CastConsumptionKind>>(
-                    consumptionKindToken.str())
-                    .Case("take_always", CastConsumptionKind::TakeAlways)
-                    .Case("take_on_success", CastConsumptionKind::TakeOnSuccess)
-                    .Case("copy_on_success", CastConsumptionKind::CopyOnSuccess)
-                    .Default(std::nullopt);
-
-    if (!kind) {
-      P.diagnose(consumptionKindLoc, diag::expected_tok_in_sil_instr,
-                 "cast consumption kind");
-      return true;
-    }
-    auto consumptionKind = kind.value();
-
-    if (parseSourceAndDestAddress() || parseConditionalBranchDestinations() ||
-        parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    ResultVal = B.createCheckedCastAddrBranch(
-        InstLoc, options, consumptionKind, SourceAddr, SourceType,
-        DestAddr, TargetType,
-        getBBForReference(SuccessBBName, SuccessBBLoc),
-        getBBForReference(FailureBBName, FailureBBLoc));
+  case SILInstructionKind::CheckedCastAddrBranchInst:
+    llvm_unreachable("CheckedCastAddrBranchInst is handled by "
+                     "SILInstructionParserVisitor");
     break;
-  }
   case SILInstructionKind::UncheckedRefCastAddrInst:
     llvm_unreachable(
         "UncheckedRefCastAddrInst is handled by SILInstructionParserVisitor");
@@ -3137,30 +2904,10 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
 
   case SILInstructionKind::MoveOnlyWrapperToCopyableAddrInst:
     llvm_unreachable("MoveOnlyWrapperToCopyableAddrInst is handled by SILInstructionParserVisitor");
-  case SILInstructionKind::MoveOnlyWrapperToCopyableBoxInst: {
-    SILValue addrVal;
-    SourceLoc addrLoc;
-    if (parseTypedValueRef(addrVal, addrLoc, B))
-      return true;
-
-    if (parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    if (!addrVal->getType().is<SILBoxType>()) {
-      P.diagnose(addrLoc, diag::sil_box_expected, OpcodeName);
-      return true;
-    }
-
-    if (!addrVal->getType().isBoxedMoveOnlyWrappedType(
-            addrVal->getFunction())) {
-      P.diagnose(addrLoc, diag::sil_operand_has_incorrect_moveonlywrapped,
-                 "operand", OpcodeName, 0);
-      return true;
-    }
-
-    ResultVal = B.createMoveOnlyWrapperToCopyableBox(InstLoc, addrVal);
+  case SILInstructionKind::MoveOnlyWrapperToCopyableBoxInst:
+    llvm_unreachable("MoveOnlyWrapperToCopyableBoxInst is handled by "
+                     "SILInstructionParserVisitor");
     break;
-  }
   case SILInstructionKind::CopyableToMoveOnlyWrapperAddrInst:
     llvm_unreachable("CopyableToMoveOnlyWrapperAddrInst is handled by SILInstructionParserVisitor");
 
@@ -3183,56 +2930,11 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
     llvm_unreachable("StoreBorrowInst is handled by SILInstructionParserVisitor");
 
 #define NEVER_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, ...)             \
-  case SILInstructionKind::Store##Name##Inst:
-#include "swift/AST/ReferenceStorage.def"
-  {
-    UnresolvedValueName from;
-    bool isRefStorage = false;
-#define NEVER_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, ...)             \
-  isRefStorage |= Opcode == SILInstructionKind::Store##Name##Inst;
-#include "swift/AST/ReferenceStorage.def"
-
-    SourceLoc toLoc, addrLoc;
-    Identifier toToken;
-    SILValue addrVal;
-    bool isInit = false;
-    if (parseValueName(from) ||
-        parseSILIdentifier(toToken, toLoc, diag::expected_tok_in_sil_instr,
-                           "to") ||
-        (isRefStorage && parseSILOptional(isInit, *this, "init")) ||
-        parseTypedValueRef(addrVal, addrLoc, B) ||
-        parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    if (toToken.str() != "to") {
-      P.diagnose(toLoc, diag::expected_tok_in_sil_instr, "to");
-      return true;
-    }
-
-    if (!addrVal->getType().isAddress()) {
-      P.diagnose(addrLoc, diag::sil_operand_not_address, "destination",
-                 OpcodeName);
-      return true;
-    }
-
-#define NEVER_OR_SOMETIMES_LOADABLE_CHECKED_REF_STORAGE(Name, ...)             \
-  if (Opcode == SILInstructionKind::Store##Name##Inst) {                       \
-    auto refType = addrVal->getType().getAs<Name##StorageType>();              \
-    if (!refType) {                                                            \
-      P.diagnose(addrLoc, diag::sil_operand_not_ref_storage_address,           \
-                 "destination", OpcodeName, ReferenceOwnership::Name);         \
-      return true;                                                             \
-    }                                                                          \
-    auto valueTy = SILType::getPrimitiveObjectType(refType.getReferentType()); \
-    ResultVal =                                                                \
-        B.createStore##Name(InstLoc, getLocalValue(from, valueTy, InstLoc, B), \
-                            addrVal, IsInitialization_t(isInit));              \
-    break;                                                                     \
-  }
-#include "swift/AST/ReferenceStorage.def"
-
+  case SILInstructionKind::Store##Name##Inst:                                   \
+    llvm_unreachable("Store" #Name "Inst is handled by "                      \
+                     "SILInstructionParserVisitor");                          \
     break;
-  }
+#include "swift/AST/ReferenceStorage.def"
   case SILInstructionKind::AllocPackInst:
     llvm_unreachable("AllocPackInst is handled by SILInstructionParserVisitor");
   case SILInstructionKind::AllocPackMetadataInst:
@@ -3245,9 +2947,7 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
   case SILInstructionKind::AllocRefDynamicInst:
     llvm_unreachable("AllocRefInst/AllocRefDynamicInst are handled by SILInstructionParserVisitor");
   case SILInstructionKind::IgnoredUseInst:
-    if (parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-      return true;
-    ResultVal = B.createIgnoredUse(InstLoc, Val);
+    llvm_unreachable("IgnoredUseInst is handled by SILInstructionParserVisitor");
     break;
 
   case SILInstructionKind::DeallocStackInst:
@@ -3257,15 +2957,9 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
   case SILInstructionKind::DeallocRefInst:
   case SILInstructionKind::DeallocPartialRefInst:
     llvm_unreachable("Dealloc* instructions are handled by SILInstructionParserVisitor");
-  case SILInstructionKind::DeallocBoxInst: {
-    bool isDeadEnd = false;
-    if (parseSILOptional(isDeadEnd, *this, "dead_end") ||
-        parseTypedValueRef(Val, B) || parseSILDebugLocation(InstLoc, B))
-      return true;
-
-    ResultVal = B.createDeallocBox(InstLoc, Val, IsDeadEnd_t(isDeadEnd));
+  case SILInstructionKind::DeallocBoxInst:
+    llvm_unreachable("DeallocBoxInst is handled by SILInstructionParserVisitor");
     break;
-  }
     case SILInstructionKind::ValueMetatypeInst:
     case SILInstructionKind::ExistentialMetatypeInst:
       llvm_unreachable("ValueMetatypeInst/ExistentialMetatypeInst are handled by "
@@ -3274,64 +2968,10 @@ bool SILParser::parseSpecificSILInstruction(SILBuilder &B,
       llvm_unreachable("DeallocExistentialBoxInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::TupleInst:
       llvm_unreachable("TupleInst is handled by SILInstructionParserVisitor");
-    case SILInstructionKind::TupleAddrConstructorInst: {
-      // First parse [init] or [assign].
-      StringRef InitOrAssign;
-      SILValue DestValue;
-      SourceLoc WithLoc, DestToken;
-      Identifier WithToken;
-
-      if (!parseSILOptional(InitOrAssign, *this) ||
-          parseTypedValueRef(DestValue, DestToken, B) ||
-          parseSILIdentifier(WithToken, WithLoc,
-                             diag::expected_tok_in_sil_instr, "with"))
-        return true;
-
-      auto IsInit =
-          llvm::StringSwitch<std::optional<IsInitialization_t>>(InitOrAssign)
-              .Case("init", IsInitialization_t::IsInitialization)
-              .Case("assign", IsInitialization_t::IsNotInitialization)
-              .Default({});
-      if (!IsInit) {
-        P.diagnose(WithLoc, diag::expected_tok_in_sil_instr,
-                   "[init] | [assign]");
-        return true;
-      }
-
-      if (WithToken.str() != "with") {
-        P.diagnose(WithLoc, diag::expected_tok_in_sil_instr, "with");
-        return true;
-      }
-
-      // If there is no type, parse the simple form.
-      if (P.parseToken(tok::l_paren, diag::expected_tok_in_sil_instr, "(")) {
-        P.diagnose(WithLoc, diag::expected_tok_in_sil_instr, "(");
-        return true;
-      }
-
-      // Then parse our tuple element list.
-      SmallVector<TupleTypeElt, 4> TypeElts;
-      if (P.Tok.isNot(tok::r_paren)) {
-        do {
-          if (parseTypedValueRef(Val, B))
-            return true;
-          OpList.push_back(Val);
-          TypeElts.push_back(Val->getType().getRawASTType());
-        } while (P.consumeIf(tok::comma));
-      }
-
-      if (P.parseToken(tok::r_paren, diag::expected_tok_in_sil_instr, ")")) {
-        P.diagnose(WithLoc, diag::expected_tok_in_sil_instr, ")");
-        return true;
-      }
-
-      if (parseSILDebugLocation(InstLoc, B))
-        return true;
-
-      ResultVal =
-          B.createTupleAddrConstructor(InstLoc, DestValue, OpList, *IsInit);
+    case SILInstructionKind::TupleAddrConstructorInst:
+      llvm_unreachable("TupleAddrConstructorInst is handled by "
+                       "SILInstructionParserVisitor");
       break;
-    }
     case SILInstructionKind::EnumInst:
       llvm_unreachable("EnumInst is handled by SILInstructionParserVisitor");
     case SILInstructionKind::InitEnumDataAddrInst:
